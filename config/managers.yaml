@@ -1,0 +1,19 @@
+# Tracked 13F managers for the institutional conviction overlay (docs/10 §2).
+#
+# SELECTION CRITERIA — fixed in advance, never changed to fit results:
+#   >= 10 years of continuous 13F filings
+#   concentrated: top-10 positions >= 50% of reported 13F AUM
+#   style-consistent: no strategy drift across cycles
+#   low turnover
+#
+# There is deliberately NO performance field. Selecting managers on recent returns
+# is selection bias with extra steps, and TICKET-032 asserts its absence.
+#
+# 13F LIMITS: long US equity only — no shorts, options, bonds, cash, or
+# international. Filed up to 45 days after quarter-end. available_at = filed_at.
+
+managers: []
+  # - name: "Example Capital"
+  #   cik: 0001234567
+  #   added: 2026-08-04
+  #   rationale: "18 years of filings, top-10 = 71% of AUM, consistent quality-value"

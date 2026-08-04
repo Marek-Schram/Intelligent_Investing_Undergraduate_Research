@@ -1,0 +1,1 @@
+run_id,date,hypothesis_id,preregistered,segment_used,params_changed,seed,llm_model_version,prompt_version,cagr,sharpe,max_dd,pbo,mean_ic,notes
