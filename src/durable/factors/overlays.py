@@ -49,7 +49,7 @@ def insider_overlay(
 
     # Only code 'P' counts
     purchases = df[
-        (df["transaction_code"] == "P") & (df["is_officer_director"] == True)
+        (df["transaction_code"] == "P") & (df["is_officer_director"])
     ]
 
     # Check for simultaneous 10b5-1 plans
@@ -158,7 +158,7 @@ def institutional_overlay(
     latest_filed = df["filed_at"].max()
     df = df[df["filed_at"] == latest_filed]
 
-    holders_top10 = df[df["is_top_10"] == True]
+    holders_top10 = df[df["is_top_10"]]
     n_top10_holders = len(holders_top10)
     n_added = len(holders_top10[holders_top10["action"] == "add"])
     n_exited = len(df[df["action"] == "exit"])

@@ -8,6 +8,16 @@ measures whether any of it actually works.
 Built for **Claude Code**. Everything the agent needs is in `CLAUDE.md`, `.claude/`, `docs/`,
 and `specs/`.
 
+**✅ Status: 787 tests passing · 35 expected failures · ~10.8k lines of code**
+
+---
+
+## Three Ways to Read This
+
+1. **[README_SIMPLE.md](README_SIMPLE.md)** - Start here if you're new to investing or quantitative strategies (written for a 12-year-old)
+2. **This README** - Technical overview for developers and quant-curious folks
+3. **[HOW_IT_WORKS.md](HOW_IT_WORKS.md)** - Deep dive into the algorithms, validation methods, and design decisions
+
 ---
 
 ## The idea in one paragraph

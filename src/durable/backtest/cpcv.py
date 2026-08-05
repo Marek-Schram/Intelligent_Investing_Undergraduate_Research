@@ -23,9 +23,8 @@ PURE FUNCTIONS ONLY: no I/O, network, wall-clock, or config lookups.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from itertools import combinations
-from math import comb
 
 import numpy as np
 

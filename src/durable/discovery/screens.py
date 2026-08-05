@@ -31,7 +31,6 @@ Screen functions receive pre-fetched data and return qualifying tickers.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
 from enum import Enum
 
 

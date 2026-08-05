@@ -11,10 +11,9 @@ The engine NEVER reads data directly — it receives pre-filtered frames.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 
-import numpy as np
 import pandas as pd
 
 
@@ -179,7 +178,7 @@ def run_backtest(
 
         # Get scores and determine target portfolio
         scores = score_fn(rebal_date)
-        eligible = scores[scores["is_excluded"] == False].sort_values("rank").head(target_n)
+        eligible = scores[~scores["is_excluded"]].sort_values("rank").head(target_n)
         target_tickers = set(eligible["ticker"].tolist())
 
         # Sell positions not in target

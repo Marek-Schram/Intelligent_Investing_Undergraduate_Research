@@ -230,7 +230,7 @@ def generate_proposal(
     if not scores.empty:
         eligible = scores[
             (~scores["ticker"].isin(held_tickers))
-            & (scores["is_excluded"] == False)
+            & (~scores["is_excluded"])
         ].sort_values("rank")
 
         n_to_buy = max(0, target_n - len(holds))

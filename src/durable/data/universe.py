@@ -11,7 +11,7 @@ Key invariant: 2008 universe contains LEH/WM/BSC. Dead companies stay in.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date
 from typing import TYPE_CHECKING
 
 import pandas as pd

@@ -16,7 +16,6 @@ PURE FUNCTIONS ONLY: no I/O, network, wall-clock, or config lookups.
 
 from __future__ import annotations
 
-import math
 
 # Calibration constants — conservative retail-scale defaults, deliberately pessimistic.
 # Published in methodology.md. An impact model is an assumption, not a measurement.

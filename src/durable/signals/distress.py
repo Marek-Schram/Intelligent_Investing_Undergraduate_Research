@@ -29,7 +29,6 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
-import numpy as np
 from scipy.optimize import fsolve
 from scipy.stats import norm
 

@@ -12,7 +12,6 @@ submit_limit_order(symbol, qty, side, limit_price, *, lot_ids=None, dry_run=True
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 

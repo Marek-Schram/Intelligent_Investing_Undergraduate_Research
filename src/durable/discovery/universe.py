@@ -24,9 +24,7 @@ PURE FUNCTIONS ONLY: no I/O, network, wall-clock, or config lookups.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 
-import pandas as pd
 
 # Safety constants — NOT config-readable by design
 MIN_MARKET_CAP = 300e6
