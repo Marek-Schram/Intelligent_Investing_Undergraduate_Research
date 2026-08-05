@@ -21,7 +21,7 @@ Sequencing eliminates the problem by construction: 11 negative quarters -> 0, at
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 
 
 @dataclass(frozen=True)
@@ -46,6 +46,10 @@ class SequencedPlan:
     notes: list[str]
 
 
+class InvariantViolation(AssertionError):
+    """Raised when sequencing invariants are violated — invalidates the run."""
+
+
 def sequence(
     orders: list[Order],
     cash_on_hand: Decimal,
@@ -66,7 +70,69 @@ def sequence(
     would silently concentrate the portfolio in exactly the quarters where cash is tight,
     which is a risk change disguised as an execution detail.
     """
-    raise NotImplementedError("TICKET-047")
+    sells = [o for o in orders if o.side == "sell"]
+    buys = [o for o in orders if o.side == "buy"]
+    notes: list[str] = []
+
+    cash = cash_on_hand
+    cash_before = cash
+
+    for sell in sells:
+        proceeds = sell.notional * (Decimal("1") - cost_rate)
+        cash += proceeds
+
+    cash_after_sells = cash
+
+    desired_buy_total = sum(b.notional for b in buys)
+    affordable = cash / (Decimal("1") + cost_rate) if cash > 0 else Decimal("0")
+
+    shortfall = False
+    scale = Decimal("1")
+
+    if desired_buy_total > affordable and desired_buy_total > 0:
+        scale = affordable / desired_buy_total
+        shortfall = True
+        notes.append(
+            f"Buys scaled pro-rata to {float(scale):.4f} "
+            f"(desired={float(desired_buy_total):.2f}, affordable={float(affordable):.2f})"
+        )
+
+    scaled_buys = []
+    for b in buys:
+        scaled_notional = (b.notional * scale).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+        if scaled_notional > 0:
+            scaled_buys.append(Order(
+                ticker=b.ticker,
+                side="buy",
+                notional=scaled_notional,
+                limit_price=b.limit_price,
+                lot_ids=b.lot_ids,
+                reason=b.reason,
+            ))
+
+    actual_buy_total = sum(b.notional for b in scaled_buys)
+    buy_cost = actual_buy_total * cost_rate
+    cash_after_buys = cash - actual_buy_total - buy_cost
+
+    if cash_after_buys < 0:
+        raise InvariantViolation(
+            f"Negative cash after buys: {float(cash_after_buys):.2f}. "
+            "Sequencing logic is broken."
+        )
+
+    plan = SequencedPlan(
+        sells=sells,
+        buys=scaled_buys,
+        scale_applied=scale,
+        cash_before=cash_before,
+        cash_after_sells=cash_after_sells,
+        cash_after_buys=cash_after_buys,
+        shortfall=shortfall,
+        notes=notes,
+    )
+
+    assert_invariants(plan)
+    return plan
 
 
 def assert_invariants(plan: SequencedPlan) -> None:
@@ -77,7 +143,27 @@ def assert_invariants(plan: SequencedPlan) -> None:
     3. no order has non-positive notional
     4. scale_applied in (0, 1]
     """
-    raise NotImplementedError("TICKET-047")
+    if plan.cash_before < 0:
+        raise InvariantViolation(f"cash_before negative: {plan.cash_before}")
+    if plan.cash_after_sells < 0:
+        raise InvariantViolation(f"cash_after_sells negative: {plan.cash_after_sells}")
+    if plan.cash_after_buys < 0:
+        raise InvariantViolation(f"cash_after_buys negative: {plan.cash_after_buys}")
+
+    for sell in plan.sells:
+        if not sell.lot_ids:
+            raise InvariantViolation(
+                f"Sell of {sell.ticker} has no lot_ids — never let broker default to FIFO"
+            )
+        if sell.notional <= 0:
+            raise InvariantViolation(f"Sell of {sell.ticker} has non-positive notional")
+
+    for buy in plan.buys:
+        if buy.notional <= 0:
+            raise InvariantViolation(f"Buy of {buy.ticker} has non-positive notional")
+
+    if plan.scale_applied <= 0 or plan.scale_applied > 1:
+        raise InvariantViolation(f"scale_applied out of range: {plan.scale_applied}")
 
 
 def projected_turnover(orders: list[Order], nav: Decimal) -> Decimal:
@@ -87,4 +173,9 @@ def projected_turnover(orders: list[Order], nav: Decimal) -> Decimal:
     the rebalance to name changes and constraint breaches only, and log the event. A kill
     criterion with no control mechanism is a post-mortem, not a control.
     """
-    raise NotImplementedError("TICKET-047")
+    if nav <= 0:
+        return Decimal("0")
+    total_notional = sum(abs(o.notional) for o in orders)
+    quarterly_turnover = total_notional / nav
+    annualized = quarterly_turnover * 4
+    return annualized
