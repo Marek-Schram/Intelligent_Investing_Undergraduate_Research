@@ -11,13 +11,21 @@ before the cutoff than after it.
 
 We cannot prevent this. We CAN measure it, and reporting a measured contamination estimate is
 far more honest than asserting the features are clean.
+
+Data source: feature IC timeseries.
+available_at logic: N/A (validation artifact).
+Spec section: docs/13 §1.
+
+PURE FUNCTIONS ONLY: no I/O, network, wall-clock, or config lookups.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr, mannwhitneyu
 
 
 @dataclass(frozen=True)
@@ -33,6 +41,24 @@ class ContaminationResult:
     verdict: str                 # "clean" | "suspected" | "contaminated" | "insufficient_data"
 
 
+def _compute_ic_series(
+    feature: pd.DataFrame,
+    forward_returns: pd.DataFrame,
+) -> pd.Series:
+    """Compute cross-sectional Spearman IC per date."""
+    dates = feature.index.intersection(forward_returns.index)
+    ics = {}
+    for dt in dates:
+        f_row = feature.loc[dt].dropna()
+        r_row = forward_returns.loc[dt].dropna()
+        common = f_row.index.intersection(r_row.index)
+        if len(common) >= 5:
+            corr, _ = spearmanr(f_row[common], r_row[common])
+            if not np.isnan(corr):
+                ics[dt] = corr
+    return pd.Series(ics, dtype=float)
+
+
 def alpha_decay_test(
     feature: pd.DataFrame,
     forward_returns: pd.DataFrame,
@@ -41,17 +67,58 @@ def alpha_decay_test(
 ) -> ContaminationResult:
     """Compare feature IC before vs after the model's training cutoff.
 
-    Verdict thresholds:
-      - `insufficient_data` if either side has < 8 periods. Say so; do not guess.
-      - `contaminated` if pre-cutoff IC exceeds post-cutoff IC by more than 50% AND the
-        difference is significant at p < 0.05.
+    Verdicts:
+      - `insufficient_data` if either side has < 8 periods.
+      - `contaminated` if pre-cutoff IC exceeds post-cutoff IC by more than 50% AND
+        the difference is significant at p < 0.05.
       - `suspected` if the gap is large but not significant.
-      - `clean` otherwise -- meaning "we looked and found no evidence", NOT "proven clean".
-
-    Report the verdict verbatim in every research artifact that uses the feature. A `clean`
-    verdict on a short post-cutoff sample is weak evidence and the report must say so.
+      - `clean` otherwise -- "we looked and found no evidence", NOT "proven clean".
     """
-    raise NotImplementedError("TICKET-045")
+    ic_series = _compute_ic_series(feature, forward_returns)
+
+    pre = ic_series[ic_series.index <= training_cutoff]
+    post = ic_series[ic_series.index > training_cutoff]
+
+    if len(pre) < 8 or len(post) < 8:
+        return ContaminationResult(
+            model_version=model_version,
+            training_cutoff=training_cutoff,
+            pre_cutoff_ic=float(pre.mean()) if len(pre) > 0 else 0.0,
+            post_cutoff_ic=float(post.mean()) if len(post) > 0 else 0.0,
+            ic_decay=0.0,
+            decay_pvalue=1.0,
+            n_pre=len(pre),
+            n_post=len(post),
+            verdict="insufficient_data",
+        )
+
+    pre_mean = float(pre.mean())
+    post_mean = float(post.mean())
+    ic_decay_val = pre_mean - post_mean
+
+    _, pvalue = mannwhitneyu(pre.values, post.values, alternative="greater")
+    pvalue = float(pvalue)
+
+    if post_mean > 0 and pre_mean > post_mean * 1.5 and pvalue < 0.05:
+        verdict = "contaminated"
+    elif post_mean > 0 and pre_mean > post_mean * 1.5:
+        verdict = "suspected"
+    elif pre_mean > 0 and post_mean <= 0 and pvalue < 0.05:
+        verdict = "contaminated"
+    else:
+        verdict = "clean"
+
+    return ContaminationResult(
+        model_version=model_version,
+        training_cutoff=training_cutoff,
+        pre_cutoff_ic=pre_mean,
+        post_cutoff_ic=post_mean,
+        ic_decay=ic_decay_val,
+        decay_pvalue=pvalue,
+        n_pre=len(pre),
+        n_post=len(post),
+        verdict=verdict,
+    )
 
 
 def placebo_test(
@@ -60,24 +127,61 @@ def placebo_test(
     n_shuffles: int = 1000,
     seed: int = 42,
 ) -> dict:
-    """Shuffle the feature's ticker labels within each date and recompute IC.
+    """Shuffle ticker labels within each date and recompute IC.
 
-    If shuffled IC is comparable to real IC, the "signal" is an artifact of the panel
-    structure rather than anything about the companies. Cheap, and it catches a class of
-    bug that survives every other check.
+    If shuffled IC is comparable to real IC, the signal is a panel artifact.
+    Seeds pinned for reproducibility.
     """
-    raise NotImplementedError("TICKET-045")
+    real_ic = _compute_ic_series(feature, forward_returns)
+    real_mean = float(real_ic.mean()) if len(real_ic) > 0 else 0.0
+
+    rng = np.random.default_rng(seed)
+    shuffled_means = []
+
+    for _ in range(n_shuffles):
+        shuffled = feature.copy()
+        for dt in shuffled.index:
+            row = shuffled.loc[dt].dropna()
+            vals = row.values.copy()
+            rng.shuffle(vals)
+            shuffled.loc[dt, row.index] = vals
+
+        shuffled_ic = _compute_ic_series(shuffled, forward_returns)
+        if len(shuffled_ic) > 0:
+            shuffled_means.append(float(shuffled_ic.mean()))
+
+    if not shuffled_means:
+        return {"real_ic": real_mean, "shuffled_mean": 0.0, "pvalue": 1.0, "is_artifact": False}
+
+    shuffled_arr = np.array(shuffled_means)
+    pvalue = float(np.mean(shuffled_arr >= real_mean))
+
+    return {
+        "real_ic": real_mean,
+        "shuffled_mean": float(shuffled_arr.mean()),
+        "shuffled_std": float(shuffled_arr.std()),
+        "pvalue": pvalue,
+        "is_artifact": pvalue > 0.05,
+    }
+
+
+IDENTITY_MARKERS = [
+    "ticker", "symbol", "company name", "NYSE:", "NASDAQ:",
+    "Inc.", "Corp.", "Ltd.", "LLC",
+]
 
 
 def entity_anonymization_check(prompt: str) -> tuple[bool, str]:
     """Does the extraction prompt leak the company identity?
 
-    The Chicago Booth result that motivates our LLM use held with ANONYMIZED statements --
-    no names, no narrative. Anonymity is what makes it analysis rather than recall.
-
-    Where a task can be run anonymized, it should be: strip ticker, company name, and
-    obvious identifiers from the prompt. Where it cannot -- risk-factor deltas need the
-    prior year's filing -- record that the task is identity-dependent so the contamination
-    verdict is interpreted accordingly.
+    Returns (is_anonymous, explanation).
     """
-    raise NotImplementedError("TICKET-045")
+    prompt_lower = prompt.lower()
+    found = []
+    for marker in IDENTITY_MARKERS:
+        if marker.lower() in prompt_lower:
+            found.append(marker)
+
+    if found:
+        return False, f"identity markers found: {', '.join(found)}"
+    return True, "no identity markers detected"
