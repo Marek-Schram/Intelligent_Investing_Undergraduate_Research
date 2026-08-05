@@ -186,15 +186,20 @@ def check_contamination(
     """Check if extraction might be contaminated.
 
     Raises ContaminationError unless allow_contaminated=True.
-    Returns True if contaminated (filing is before model training cutoff).
+    Returns True if contaminated (filing is AFTER model training cutoff).
+
+    A filing dated after the model's training cutoff means the model was trained
+    on data from that period - it has "read the future" relative to a backtest
+    using that filing.
     """
-    is_contaminated = filing_date < model_training_cutoff
+    is_contaminated = filing_date > model_training_cutoff
 
     if is_contaminated and not allow_contaminated:
         raise ContaminationError(
-            f"Filing date {filing_date} is before model training cutoff "
-            f"{model_training_cutoff}. Pass allow_contaminated=True to proceed "
-            f"(results will be tagged CONTAMINATED)."
+            f"Filing date {filing_date} is AFTER model training cutoff "
+            f"{model_training_cutoff}. The model was trained on this period - "
+            f"using this extraction in a backtest is contaminated. "
+            f"Pass allow_contaminated=True to proceed (results will be tagged CONTAMINATED)."
         )
 
     return is_contaminated
