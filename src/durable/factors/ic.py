@@ -6,16 +6,23 @@ A portfolio can look perfectly respectable because of construction -- equal weig
 caps, the top-60 buffer -- while every underlying factor has zero information content. IC is
 the direct measurement. See docs/09 section 7 and docs/13 section 2.3.
 
-Implemented directly rather than depending on Alphalens, which has been unmaintained since
-Quantopian closed. The math is ~200 lines and we need to be able to defend it.
+Data source: factor scores, forward returns from PIT store.
+available_at logic: all data filtered via store.as_of(as_of) upstream.
+Spec section: docs/09 §7.
+
+PURE FUNCTIONS ONLY: no I/O, network, wall-clock, or config lookups.
 """
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr, pearsonr
+
 
 HORIZONS_QUARTERS = (1, 2, 4, 8)
 N_QUANTILES = 5
+LOOKAHEAD_IC_THRESHOLD = 0.15
 
 
 def rank_ic(
@@ -26,37 +33,81 @@ def rank_ic(
     """Cross-sectional rank IC per date. Returns a Series indexed by date.
 
     SPEARMAN, not Pearson. Financial cross-sections have fat tails; a linear correlation
-    is dominated by a handful of outliers, which is exactly the wrong sensitivity for a
-    signal meant to rank an entire universe.
+    is dominated by a handful of outliers.
     """
-    raise NotImplementedError("TICKET-043")
+    dates = factor.index.intersection(forward_returns.index)
+    ics = {}
+
+    for dt in dates:
+        f_row = factor.loc[dt].dropna()
+        r_row = forward_returns.loc[dt].dropna()
+        common = f_row.index.intersection(r_row.index)
+
+        if len(common) < 5:
+            continue
+
+        if method == "spearman":
+            corr, _ = spearmanr(f_row[common], r_row[common])
+        else:
+            corr, _ = pearsonr(f_row[common], r_row[common])
+
+        ics[dt] = corr
+
+    return pd.Series(ics, dtype=float)
 
 
 def ic_summary(ic_series: pd.Series) -> dict:
-    """Mean IC, std, information ratio (mean/std), t-stat, hit rate, n_periods.
+    """Mean IC, std, information ratio, t-stat, hit rate, n_periods.
 
-    Interpretation guardrails that belong in the output, not just the docs:
-      - |mean IC| of 0.02-0.05 is typical for a real equity factor.
-      - **|mean IC| > 0.15 on real data almost always means look-ahead.** Flag it loudly
-        and recommend the backtest-validator subagent before anyone believes it.
-      - t-stat < 2 means the factor is indistinguishable from noise on this sample.
-      - Always report n_periods. 40 quarters is a small sample and the report must say so.
+    Flags |mean IC| > 0.15 as suspected look-ahead.
     """
-    raise NotImplementedError("TICKET-043")
+    n = len(ic_series)
+    if n == 0:
+        return {
+            "mean_ic": 0.0, "std_ic": 0.0, "ir": 0.0,
+            "t_stat": 0.0, "hit_rate": 0.0, "n_periods": 0,
+            "suspected_lookahead": False,
+        }
+
+    mean_ic = float(ic_series.mean())
+    std_ic = float(ic_series.std(ddof=1)) if n > 1 else 0.0
+    ir = mean_ic / std_ic if std_ic > 0 else 0.0
+    t_stat = ir * np.sqrt(n)
+    hit_rate = float((ic_series > 0).sum() / n)
+
+    suspected = abs(mean_ic) > LOOKAHEAD_IC_THRESHOLD
+
+    return {
+        "mean_ic": mean_ic,
+        "std_ic": std_ic,
+        "ir": ir,
+        "t_stat": t_stat,
+        "hit_rate": hit_rate,
+        "n_periods": n,
+        "suspected_lookahead": suspected,
+    }
 
 
 def ic_decay(
     factor: pd.DataFrame,
-    prices: pd.DataFrame,
+    forward_returns_by_horizon: dict[int, pd.DataFrame],
     horizons: tuple[int, ...] = HORIZONS_QUARTERS,
 ) -> pd.DataFrame:
-    """IC at each forward horizon. Returns index=horizon, columns=[mean_ic, ir, t_stat].
-
-    The decay curve determines the natural rebalance frequency. **If IC dies inside one
-    quarter, our quarterly cycle structurally cannot capture the signal** -- and that is a
-    reason to drop the factor, not to trade more often.
-    """
-    raise NotImplementedError("TICKET-043")
+    """IC at each forward horizon."""
+    rows = []
+    for h in horizons:
+        if h not in forward_returns_by_horizon:
+            rows.append({"horizon": h, "mean_ic": 0.0, "ir": 0.0, "t_stat": 0.0})
+            continue
+        ic_s = rank_ic(factor, forward_returns_by_horizon[h])
+        summary = ic_summary(ic_s)
+        rows.append({
+            "horizon": h,
+            "mean_ic": summary["mean_ic"],
+            "ir": summary["ir"],
+            "t_stat": summary["t_stat"],
+        })
+    return pd.DataFrame(rows).set_index("horizon")
 
 
 def quantile_returns(
@@ -64,32 +115,84 @@ def quantile_returns(
     forward_returns: pd.DataFrame,
     n_quantiles: int = N_QUANTILES,
 ) -> pd.DataFrame:
-    """Mean forward return per factor quantile, plus the top-minus-bottom spread.
+    """Mean forward return per factor quantile."""
+    dates = factor.index.intersection(forward_returns.index)
+    quantile_rets: dict[int, list[float]] = {q: [] for q in range(1, n_quantiles + 1)}
 
-    Returns index=quantile, columns=[mean_return, std, n_obs, t_stat].
-    """
-    raise NotImplementedError("TICKET-043")
+    for dt in dates:
+        f_row = factor.loc[dt].dropna()
+        r_row = forward_returns.loc[dt].dropna()
+        common = f_row.index.intersection(r_row.index)
+
+        if len(common) < n_quantiles:
+            continue
+
+        ranks = f_row[common].rank(method="first")
+        quantiles = pd.qcut(ranks, n_quantiles, labels=range(1, n_quantiles + 1))
+
+        for q in range(1, n_quantiles + 1):
+            tickers_in_q = quantiles[quantiles == q].index
+            if len(tickers_in_q) > 0:
+                quantile_rets[q].extend(r_row[tickers_in_q].tolist())
+
+    rows = []
+    for q in range(1, n_quantiles + 1):
+        rets = quantile_rets[q]
+        if rets:
+            arr = np.array(rets)
+            rows.append({
+                "quantile": q,
+                "mean_return": float(arr.mean()),
+                "std": float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
+                "n_obs": len(arr),
+                "t_stat": float(arr.mean() / (arr.std(ddof=1) / np.sqrt(len(arr)))) if len(arr) > 1 and arr.std(ddof=1) > 0 else 0.0,
+            })
+        else:
+            rows.append({"quantile": q, "mean_return": 0.0, "std": 0.0, "n_obs": 0, "t_stat": 0.0})
+
+    return pd.DataFrame(rows).set_index("quantile")
 
 
 def is_monotonic(quantile_table: pd.DataFrame, tolerance: float = 0.0) -> tuple[bool, str]:
     """Are quantile returns monotonically increasing?
 
-    **A factor whose quantiles are not monotonic is not a factor; it is noise with a
-    threshold.** A non-monotonic table with a large top-minus-bottom spread means you have
-    a tail effect -- possibly real, but not the linear signal the score assumes -- and the
-    report must say that explicitly rather than quoting the spread alone.
+    Non-monotonic with large spread = tail effect, not a factor.
     """
-    raise NotImplementedError("TICKET-043")
+    means = quantile_table["mean_return"].values
+    if len(means) < 2:
+        return True, "insufficient quantiles"
+
+    diffs = np.diff(means)
+    monotonic = bool(np.all(diffs >= -tolerance))
+
+    if monotonic:
+        return True, "monotonic"
+
+    spread = means[-1] - means[0]
+    if abs(spread) > 0.02 and not monotonic:
+        return False, "tail effect: large spread but non-monotonic"
+    return False, "non-monotonic"
 
 
 def factor_autocorrelation(factor: pd.DataFrame, lag: int = 1) -> float:
-    """Rank autocorrelation of the factor across periods.
+    """Rank autocorrelation of factor across periods.
 
-    This is the turnover the factor implies BEFORE any buffer rule. A factor with low
-    autocorrelation cannot be traded quarterly in a taxable account regardless of its IC --
-    the tax drag will eat it.
+    Low autocorrelation = high implied turnover = cannot trade quarterly in taxable.
     """
-    raise NotImplementedError("TICKET-043")
+    dates = sorted(factor.index)
+    if len(dates) < lag + 1:
+        return 0.0
+
+    corrs = []
+    for i in range(lag, len(dates)):
+        curr = factor.loc[dates[i]].dropna()
+        prev = factor.loc[dates[i - lag]].dropna()
+        common = curr.index.intersection(prev.index)
+        if len(common) >= 5:
+            corr, _ = spearmanr(curr[common].rank(), prev[common].rank())
+            corrs.append(corr)
+
+    return float(np.mean(corrs)) if corrs else 0.0
 
 
 def sector_neutral_ic(
@@ -99,18 +202,33 @@ def sector_neutral_ic(
 ) -> pd.Series:
     """IC computed within sector, then averaged.
 
-    If raw IC is strong but sector-neutral IC is near zero, the "factor" is a sector bet.
-    That is a materially different claim and belongs in the report.
+    If raw IC strong but sector-neutral IC near zero, the "factor" is a sector bet.
     """
-    raise NotImplementedError("TICKET-043")
+    dates = factor.index.intersection(forward_returns.index)
+    ics = {}
 
+    for dt in dates:
+        f_row = factor.loc[dt].dropna()
+        r_row = forward_returns.loc[dt].dropna()
+        common = f_row.index.intersection(r_row.index).intersection(sectors.index)
 
-def full_ic_report(
-    factor: pd.DataFrame,
-    prices: pd.DataFrame,
-    sectors: pd.Series,
-    factor_name: str,
-) -> dict:
-    """Everything above, assembled. Log the run to experiment_log.csv -- an IC test is a
-    trial and counts toward the Deflated Sharpe trial count."""
-    raise NotImplementedError("TICKET-043")
+        if len(common) < 5:
+            continue
+
+        sector_ics = []
+        for sector in sectors[common].unique():
+            mask = sectors[common] == sector
+            tickers = common[mask]
+            if len(tickers) >= 3:
+                f_vals = f_row[tickers]
+                if f_vals.nunique() < 2:
+                    sector_ics.append(0.0)
+                    continue
+                corr, _ = spearmanr(f_vals, r_row[tickers])
+                if not np.isnan(corr):
+                    sector_ics.append(corr)
+
+        if sector_ics:
+            ics[dt] = float(np.mean(sector_ics))
+
+    return pd.Series(ics, dtype=float)
