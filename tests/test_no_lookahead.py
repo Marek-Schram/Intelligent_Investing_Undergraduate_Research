@@ -166,7 +166,7 @@ def test_no_restated_values_used():
         f"Should use original value (50000), not restated (52000). "
         f"Got: {aapl_revenue.iloc[0]['value']}"
     )
-    assert aapl_revenue.iloc[0]["restated"] is False
+    assert bool(aapl_revenue.iloc[0]["restated"]) is False
 
 
 def test_13f_uses_filed_at_not_period_end():

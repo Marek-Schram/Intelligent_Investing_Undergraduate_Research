@@ -292,7 +292,10 @@ def as_of(
 ) -> pd.DataFrame:
     """Point-in-time query: returns only rows where available_at <= ts.
 
-    This is THE look-ahead guard. Every read path goes through here.
+    This is THE look-ahead guard. Every read path goes through here. Per
+    .claude/rules/no-lookahead.md rule 3, tables carrying a `restated` column are also
+    filtered to restated = FALSE: scoring must always use the originally-filed value,
+    never a later restatement, even if that restatement is already available_at <= ts.
     """
     if table not in _TABLES:
         raise ValueError(f"Unknown table: {table!r}")
@@ -307,6 +310,9 @@ def as_of(
     query = f"SELECT * FROM {table} WHERE available_at <= ?"
     params: list = [ts]
 
+    if "restated BOOLEAN" in _TABLES[table]:
+        query += " AND restated = FALSE"
+
     if tickers is not None:
         if isinstance(tickers, str):
             tickers = [tickers]
@@ -314,7 +320,7 @@ def as_of(
         query += " AND ticker IN (SELECT UNNEST(?))"
         params.append(tickers)
 
-    result = conn.execute(query, params).fetch_arrow_table().to_pandas()
+    result = conn.execute(query, params).to_arrow_table().to_pandas(self_destruct=True)
 
     _assert_no_future_fast(result, ts, table)
 

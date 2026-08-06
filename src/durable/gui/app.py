@@ -10,12 +10,22 @@ it isn't finished here either — the GUI is a front door, not a rewrite.
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import date
+from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
-from durable.gui.runner import PROJECT_ROOT, list_recent_files, run_make, run_streaming
+from durable.gui.runner import (
+    OUTPUT_DIRS,
+    PROJECT_ROOT,
+    list_output_files,
+    list_recent_files,
+    run_make,
+    run_streaming,
+)
 
 st.set_page_config(page_title="Durable Alpha", page_icon="📈", layout="wide")
 
@@ -82,6 +92,56 @@ def env_status() -> dict[str, bool]:
         else:
             present[key] = False
     return present
+
+
+MAX_PREVIEW_BYTES = 5_000_000  # larger files still download, just skip the inline render
+
+
+def render_file_preview(path: Path) -> None:
+    """Render `path` inline (table for CSV, tree for JSON, text for markdown/logs, image for
+    pictures) plus a download button. Used by the Files page and the Submit page's file picker
+    so a proposal or report can always be read before you act on it, not just located."""
+    if not path.is_file():
+        st.warning(f"File not found: `{path}`")
+        return
+
+    size = path.stat().st_size
+    modified = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(path.stat().st_mtime))
+    st.caption(f"`{path.relative_to(PROJECT_ROOT)}` — {size:,} bytes — modified {modified}")
+
+    suffix = path.suffix.lower()
+    try:
+        if suffix == ".csv":
+            df = pd.read_csv(path)
+            st.dataframe(df, use_container_width=True)
+            st.caption(f"{len(df):,} rows × {len(df.columns)} columns")
+        elif suffix == ".json":
+            st.json(json.loads(path.read_text()))
+        elif suffix in (".md", ".markdown"):
+            st.markdown(path.read_text())
+        elif suffix in (".txt", ".log", ".yaml", ".yml"):
+            st.code(path.read_text(), language="text")
+        elif suffix in (".png", ".jpg", ".jpeg", ".gif"):
+            st.image(str(path))
+        elif suffix == ".pdf":
+            st.info("PDF preview isn't supported inline here — use the download button below.")
+        else:
+            st.info(f"No inline preview for `{suffix or '(no extension)'}` files — download it.")
+    except Exception as exc:
+        st.error(f"Could not preview this file: {exc}")
+
+    if size <= MAX_PREVIEW_BYTES:
+        st.download_button(
+            "⬇️ Download this file",
+            data=path.read_bytes(),
+            file_name=path.name,
+            key=f"dl_{path}",
+        )
+    else:
+        st.caption(
+            f"File is {size:,} bytes, too large to offer as a download here — open it "
+            f"directly at `{path}`."
+        )
 
 
 def step_header(number: int, total: int, title: str, blurb: str) -> None:
@@ -154,8 +214,47 @@ def page_welcome() -> None:
   anything.
 - **Every button shows the exact command it's running**, right above the output box, so you can
   learn the command-line equivalents as you go.
+- **Anything a command writes to disk — a proposal, a report, a CSV — can be opened right here.**
+  Use **📁 Files & Outputs** in the sidebar to browse and view it without leaving the browser.
         """
     )
+
+
+def page_files() -> None:
+    st.title("📁 Files & Outputs")
+    st.markdown(
+        "Every proposal, report, and research file this program writes lands in one of the "
+        "folders below. Pick a folder, pick a file, and it opens right here — a CSV renders as "
+        "a table, a report as text or a chart, and everything has a download button."
+    )
+    st.divider()
+
+    folder_label = st.selectbox("Folder", list(OUTPUT_DIRS.keys()), key="files_folder")
+    directory = OUTPUT_DIRS[folder_label]
+    files = list_output_files(directory)
+
+    if not files:
+        st.info(
+            f"No files in `{directory.relative_to(PROJECT_ROOT)}` yet. Run one of the "
+            "commands elsewhere in this app that writes to this folder, then come back."
+        )
+        return
+
+    rows = [
+        {
+            "File": str(p.relative_to(directory)),
+            "Size (bytes)": p.stat().st_size,
+            "Modified": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(p.stat().st_mtime)),
+        }
+        for p in files
+    ]
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    st.divider()
+    options = [str(p.relative_to(directory)) for p in files]
+    chosen = st.selectbox("Open a file", options, key="files_chosen")
+    st.subheader(chosen)
+    render_file_preview(directory / chosen)
 
 
 def page_setup() -> None:
@@ -401,12 +500,17 @@ def page_submit() -> None:
     options = [str(p.relative_to(PROJECT_ROOT)) for p in candidates]
     if options:
         chosen = st.selectbox("Proposal file", options, key="submit_file_select")
+        st.markdown("**Preview:**")
+        render_file_preview(PROJECT_ROOT / chosen)
     else:
         st.info(
             "No proposal files found yet in `proposals/` or `reports/`. "
             "Run **Propose Trades** first."
         )
         chosen = st.text_input("Or type a proposal file path", key="submit_file_manual")
+        if chosen:
+            st.markdown("**Preview:**")
+            render_file_preview(PROJECT_ROOT / chosen)
 
     st.divider()
     reviewed = st.checkbox(
@@ -518,6 +622,9 @@ PAGES: dict[str, dict] = {
         "Welcome & Workflow Guide": page_welcome,
         "Setup Check & Install": page_setup,
         "Run Tests (Health Check)": page_test,
+    },
+    "📁 Files & Outputs": {
+        "Browse Files": page_files,
     },
     "📊 Data": {
         "Update Market Data (Ingest)": page_ingest,

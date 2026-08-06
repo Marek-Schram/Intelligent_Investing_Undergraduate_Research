@@ -91,3 +91,28 @@ def list_recent_files(
         files.extend(p for p in directory.glob(pattern) if p.is_file())
     files = sorted(set(files), key=lambda p: p.stat().st_mtime, reverse=True)
     return files[:limit]
+
+
+# Every directory the program writes proposals, reports, or research output into.
+# The Files page (and the file picker on the Submit page) browse exactly these.
+OUTPUT_DIRS: dict[str, Path] = {
+    "Proposals": PROJECT_ROOT / "proposals",
+    "Reports": PROJECT_ROOT / "reports",
+    "Research (journal, literature, protocol)": PROJECT_ROOT / "research",
+    "Processed data": PROJECT_ROOT / "data" / "processed",
+}
+
+_SKIP_NAMES = {".gitkeep"}
+
+
+def list_output_files(directory: Path, limit: int = 500) -> list[Path]:
+    """All files under `directory`, recursively, newest-modified first."""
+    if not directory.is_dir():
+        return []
+    files = [
+        p
+        for p in directory.rglob("*")
+        if p.is_file() and p.name not in _SKIP_NAMES and not p.name.startswith(".")
+    ]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return files[:limit]
