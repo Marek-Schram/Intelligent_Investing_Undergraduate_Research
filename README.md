@@ -18,6 +18,10 @@ and `specs/`.
 2. **This README** - Technical overview for developers and quant-curious folks
 3. **[HOW_IT_WORKS.md](HOW_IT_WORKS.md)** - Deep dive into the algorithms, validation methods, and design decisions
 
+Prefer clicking buttons to typing commands? Run `make gui` and see **[GUI_GUIDE.md](GUI_GUIDE.md)**
+— a browser front end for every command below, with a guided step order and no command-line
+knowledge required.
+
 ---
 
 ## The idea in one paragraph
@@ -47,6 +51,9 @@ claude                                        # open Claude Code here
 Then: `Read specs/BUILD_TICKETS.md and start TICKET-001. Plan before you write code.`
 
 Verify the agent surfaces loaded — expect **8 rules, 11 skills, 9 subagents, 4 hooks**.
+
+Want a GUI instead of the command line? `make gui` opens a browser interface with every command
+above as a guided, numbered step — see [GUI_GUIDE.md](GUI_GUIDE.md).
 
 ---
 

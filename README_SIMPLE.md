@@ -6,6 +6,11 @@ This is a computer program that helps you invest in the stock market intelligent
 
 **The Big Idea:** Buy about 20 really good companies at fair prices, and hold them for years. Don't panic when prices go down. Don't get greedy when prices go up. Just stick to the plan.
 
+> **Don't want to type commands?** After the install steps below, run `make gui` to open a
+> point-and-click browser version of this whole program, with numbered steps walking you
+> through the order to do things in. See [GUI_GUIDE.md](GUI_GUIDE.md). Everything below still
+> works exactly the same either way — the GUI just runs the same commands for you.
+
 ---
 
 ## How It Works (In Plain English)
@@ -132,6 +137,10 @@ make test
 ---
 
 ## How to Use It
+
+**Prefer a GUI?** Skip straight to `make gui` and follow the numbered steps in the sidebar —
+it walks you through everything below in order. What follows is the command-line version of
+the same steps, for reference.
 
 ### Check Stock Scores
 ```bash
@@ -299,6 +308,9 @@ durable-alpha/
 4. **Run `make propose`** - Generate your first set of suggested trades (paper money)
 5. **Review the proposals carefully** - Understand why each stock was chosen
 6. **Learn as you go** - The system logs everything, so you can always look back
+
+Or skip the typing entirely: run `make gui` and do all six of the above by clicking through the
+numbered steps in the sidebar. See [GUI_GUIDE.md](GUI_GUIDE.md).
 
 ---
 

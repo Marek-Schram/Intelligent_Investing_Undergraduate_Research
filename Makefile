@@ -1,10 +1,13 @@
-.PHONY: help setup lint test ingest simulate score ic leakage-audit backtest cpcv discover dossier extract propose submit report research-export tax-review journal reproduce clean
+.PHONY: help setup gui lint test ingest simulate score ic leakage-audit backtest cpcv discover dossier extract propose submit report research-export tax-review journal reproduce clean
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS=":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
 setup:   ## Install dependencies
 	uv sync || pip install -r requirements.txt
+
+gui:     ## Launch the browser-based GUI (wraps every command below)
+	uv run streamlit run src/durable/gui/app.py || streamlit run src/durable/gui/app.py
 
 lint:    ## Ruff check + format
 	ruff check src tests && ruff format --check src tests
