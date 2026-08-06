@@ -12,3 +12,5 @@ __pycache__/
 KILL
 RECONCILE_FAILED
 research/literature/pdfs/
+.coverage
+.pytest_cache/
