@@ -8,8 +8,6 @@ from decimal import Decimal
 from durable.tax.harvest import (
     GICS_SECTOR_TO_ETF,
     AccountType,
-    AdjustedLot,
-    HarvestOpportunity,
     LossType,
     TaxLot,
     Transaction,

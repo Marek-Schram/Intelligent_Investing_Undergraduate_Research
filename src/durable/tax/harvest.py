@@ -22,7 +22,6 @@ from datetime import date, timedelta
 from decimal import Decimal
 from enum import Enum
 
-
 # 61-day wash sale window: 30 days before + sale day + 30 days after
 WASH_SALE_WINDOW_DAYS = 61
 WASH_SALE_BEFORE = 30

@@ -26,7 +26,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-
 DURABILITY_GATE_MIN = 30
 DURABILITY_GATE_MAX_SCORE = 50
 DURABILITY_WEIGHT_MAX = 40

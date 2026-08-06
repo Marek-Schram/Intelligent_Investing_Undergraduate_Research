@@ -32,7 +32,6 @@ from enum import Enum
 from scipy.optimize import fsolve
 from scipy.stats import norm
 
-
 FINANCIAL_SIC_RANGES = [
     (6000, 6999),  # Finance, Insurance, Real Estate
 ]
@@ -96,7 +95,11 @@ def _merton_system(
     d2 = d1 - sigma_V * math.sqrt(time_horizon)
 
     # Equation 1: E = V*N(d1) - D*exp(-rT)*N(d2)
-    eq1 = V * norm.cdf(d1) - debt * math.exp(-risk_free_rate * time_horizon) * norm.cdf(d2) - equity_value
+    eq1 = (
+        V * norm.cdf(d1)
+        - debt * math.exp(-risk_free_rate * time_horizon) * norm.cdf(d2)
+        - equity_value
+    )
 
     # Equation 2: sigma_E * E = sigma_V * V * N(d1)
     eq2 = sigma_V * V * norm.cdf(d1) - equity_volatility * equity_value

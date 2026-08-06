@@ -269,7 +269,9 @@ def write_snapshot(
         raise ValueError("Cannot write an empty DataFrame as a snapshot")
 
     if "snapshot_id" in df.columns:
-        raise ValueError("DataFrame must not contain a 'snapshot_id' column; it is set by the store")
+        raise ValueError(
+            "DataFrame must not contain a 'snapshot_id' column; it is set by the store"
+        )
 
     df_with_id = df.assign(snapshot_id=snapshot_id)
 
@@ -337,9 +339,7 @@ def _assert_no_future_fast(df: pd.DataFrame, ts: datetime, table: str) -> None:
         )
 
 
-def list_snapshots(
-    conn: duckdb.DuckDBPyConnection, table: str | None = None
-) -> pd.DataFrame:
+def list_snapshots(conn: duckdb.DuckDBPyConnection, table: str | None = None) -> pd.DataFrame:
     """Return the snapshot registry, optionally filtered by table."""
     query = "SELECT * FROM snapshots"
     params: list = []

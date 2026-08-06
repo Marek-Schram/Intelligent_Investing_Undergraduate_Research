@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from durable.discovery.universe import (
     AUTO_DISQUALIFIERS,
-    ExclusionReason,
-    check_auto_disqualifiers,
     screen_candidate,
 )
 
@@ -104,9 +100,7 @@ class TestSleeveEUniverse:
     def test_auto_disqualifier_excludes(self):
         """Any auto-disqualifier flag fires exclusion."""
         flags = {"reverse_split_within_24m": True}
-        eligible, reasons = screen_candidate(
-            **_valid_candidate(), auto_disqualifier_flags=flags
-        )
+        eligible, reasons = screen_candidate(**_valid_candidate(), auto_disqualifier_flags=flags)
         assert eligible is False
         assert any("auto_disqualifier" in r.reason for r in reasons)
 
@@ -133,6 +127,7 @@ class TestSleeveEUniverse:
     def test_safety_constants_not_config_readable(self):
         """Safety constants are module-level, not from config — acceptance criterion."""
         from durable.discovery import universe
+
         assert universe.MIN_MARKET_CAP == 300e6
         assert universe.MAX_MARKET_CAP == 3e9
         assert universe.MIN_PRICE == 5.00
@@ -142,7 +137,5 @@ class TestSleeveEUniverse:
     def test_24_month_otc_history_rejection(self):
         """OTC history within 24 months excluded."""
         flags = {"otc_history_within_24m": True}
-        eligible, _ = screen_candidate(
-            **_valid_candidate(), auto_disqualifier_flags=flags
-        )
+        eligible, _ = screen_candidate(**_valid_candidate(), auto_disqualifier_flags=flags)
         assert eligible is False

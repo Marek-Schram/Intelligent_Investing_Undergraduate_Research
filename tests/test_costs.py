@@ -12,7 +12,6 @@ from durable.backtest.costs import (
     compute_trade_cost,
     execution_cost_bps,
     execution_cost_dollars,
-    holding_period_days,
     is_long_term,
     tax_cost,
     wash_sale_adjustment,
@@ -121,9 +120,7 @@ class TestComputeTradeCost:
         assert result.total_cost > 0
         assert result.tax_cost > 0  # Gain of $3000
         assert result.is_short_term is False  # > 365 days
-        assert result.total_cost == pytest.approx(
-            result.total_execution_cost + result.tax_cost
-        )
+        assert result.total_cost == pytest.approx(result.total_execution_cost + result.tax_cost)
 
     def test_short_term_trade(self):
         """Trade held < 1 year is short-term."""
@@ -141,15 +138,23 @@ class TestComputeTradeCost:
     def test_multiplier_sensitivity(self):
         """Cost multiplier scales execution cost."""
         base = compute_trade_cost(
-            ticker="GOOG", shares=100, price=100.0,
-            entry_date=date(2023, 1, 1), exit_date=date(2024, 6, 1),
-            cost_basis=8000.0, adv=3_000_000.0, multiplier=1.0,
+            ticker="GOOG",
+            shares=100,
+            price=100.0,
+            entry_date=date(2023, 1, 1),
+            exit_date=date(2024, 6, 1),
+            cost_basis=8000.0,
+            adv=3_000_000.0,
+            multiplier=1.0,
         )
         double = compute_trade_cost(
-            ticker="GOOG", shares=100, price=100.0,
-            entry_date=date(2023, 1, 1), exit_date=date(2024, 6, 1),
-            cost_basis=8000.0, adv=3_000_000.0, multiplier=2.0,
+            ticker="GOOG",
+            shares=100,
+            price=100.0,
+            entry_date=date(2023, 1, 1),
+            exit_date=date(2024, 6, 1),
+            cost_basis=8000.0,
+            adv=3_000_000.0,
+            multiplier=2.0,
         )
-        assert double.total_execution_cost == pytest.approx(
-            base.total_execution_cost * 2.0
-        )
+        assert double.total_execution_cost == pytest.approx(base.total_execution_cost * 2.0)

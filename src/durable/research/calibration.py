@@ -24,7 +24,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 SPARSE_BIN_THRESHOLD = 5
 
 
@@ -93,25 +92,37 @@ def calibration_curve(
         lower = 50 + i * bin_width
         upper = 50 + (i + 1) * bin_width if i < n_bins - 1 else 100
 
-        in_bin = [p for p in predictions if lower <= p.confidence < upper or (i == n_bins - 1 and p.confidence == 99)]
+        in_bin = [
+            p
+            for p in predictions
+            if lower <= p.confidence < upper or (i == n_bins - 1 and p.confidence == 99)
+        ]
         count = len(in_bin)
 
         if count == 0:
-            bins.append(CalibrationBin(
-                bin_lower=lower, bin_upper=upper,
-                mean_confidence=0.0, hit_rate=0.0,
-                count=0, sparse=True,
-            ))
+            bins.append(
+                CalibrationBin(
+                    bin_lower=lower,
+                    bin_upper=upper,
+                    mean_confidence=0.0,
+                    hit_rate=0.0,
+                    count=0,
+                    sparse=True,
+                )
+            )
         else:
             mean_conf = sum(p.confidence for p in in_bin) / count
             hit_rate = sum(1 for p in in_bin if p.outcome) / count
-            bins.append(CalibrationBin(
-                bin_lower=lower, bin_upper=upper,
-                mean_confidence=mean_conf / 100.0,
-                hit_rate=hit_rate,
-                count=count,
-                sparse=count < SPARSE_BIN_THRESHOLD,
-            ))
+            bins.append(
+                CalibrationBin(
+                    bin_lower=lower,
+                    bin_upper=upper,
+                    mean_confidence=mean_conf / 100.0,
+                    hit_rate=hit_rate,
+                    count=count,
+                    sparse=count < SPARSE_BIN_THRESHOLD,
+                )
+            )
 
     return bins
 

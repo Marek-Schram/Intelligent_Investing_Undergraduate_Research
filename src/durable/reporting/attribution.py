@@ -114,9 +114,15 @@ def carino_linking(
             k_t = 1.0 / n
 
         attr = period_attributions[t]
-        linked_alloc = linked_alloc.add(attr.allocation.reindex(sectors, fill_value=0.0) * k_t, fill_value=0.0)
-        linked_sel = linked_sel.add(attr.selection.reindex(sectors, fill_value=0.0) * k_t, fill_value=0.0)
-        linked_inter = linked_inter.add(attr.interaction.reindex(sectors, fill_value=0.0) * k_t, fill_value=0.0)
+        linked_alloc = linked_alloc.add(
+            attr.allocation.reindex(sectors, fill_value=0.0) * k_t, fill_value=0.0
+        )
+        linked_sel = linked_sel.add(
+            attr.selection.reindex(sectors, fill_value=0.0) * k_t, fill_value=0.0
+        )
+        linked_inter = linked_inter.add(
+            attr.interaction.reindex(sectors, fill_value=0.0) * k_t, fill_value=0.0
+        )
 
     # Scale to match cumulative excess
     raw_total = linked_alloc.sum() + linked_sel.sum() + linked_inter.sum()

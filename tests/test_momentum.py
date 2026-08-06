@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 import pandas as pd
-import pytest
 
 from durable.factors.momentum import (
     momentum_12_1_score,
@@ -19,12 +18,8 @@ from durable.factors.momentum import (
 def _make_bars(start: date, n_days: int, start_price: float, end_price: float) -> pd.DataFrame:
     """Create synthetic daily bars with linear price path."""
     dates = pd.bdate_range(start, periods=n_days)
-    prices = [
-        start_price + (end_price - start_price) * i / (n_days - 1) for i in range(n_days)
-    ]
-    return pd.DataFrame(
-        {"dt": dates.date, "close": prices, "volume": [1000000] * n_days}
-    )
+    prices = [start_price + (end_price - start_price) * i / (n_days - 1) for i in range(n_days)]
+    return pd.DataFrame({"dt": dates.date, "close": prices, "volume": [1000000] * n_days})
 
 
 class TestTotalReturn12_1:
@@ -80,9 +75,7 @@ class TestTotalReturn12_1:
 
         # With split: positive return
         split_date = date(2024, 6, 15)
-        actions = pd.DataFrame(
-            [{"ex_date": split_date, "action_type": "split", "factor": 2.0}]
-        )
+        actions = pd.DataFrame([{"ex_date": split_date, "action_type": "split", "factor": 2.0}])
         ret_with_split = total_return_12_1(bars, as_of, corporate_actions=actions)
         assert ret_with_split is not None
         assert ret_with_split > 0

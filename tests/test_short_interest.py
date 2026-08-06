@@ -7,20 +7,17 @@ from datetime import date
 import pytest
 
 from durable.signals.short_interest import (
-    CREDIT_WIDENING_THRESHOLD_BPS,
-    CreditData,
-    CreditEventType,
     SI_THRESHOLD_SLEEVE_C,
     SI_THRESHOLD_SLEEVE_E,
+    CreditData,
+    CreditEventType,
     ShortInterestData,
-    ShortInterestSignal,
     Sleeve,
     check_credit_widening,
     check_short_interest,
     compute_short_interest_signal,
     get_si_threshold,
 )
-
 
 PUB_DATE = date(2025, 6, 15)
 
@@ -98,7 +95,9 @@ class TestCreditWideningEventReport:
 
     def test_widening_triggers_event_report(self):
         credit = CreditData(
-            ticker="TEST", spread_bps=250, spread_bps_prior=100,
+            ticker="TEST",
+            spread_bps=250,
+            spread_bps_prior=100,
             publication_date=PUB_DATE,
         )
         event, widening, report_required = check_credit_widening(credit)
@@ -110,7 +109,9 @@ class TestCreditWideningEventReport:
         """Event report, NOT automatic sell."""
         si = _si_data()
         credit = CreditData(
-            ticker="TEST", spread_bps=300, spread_bps_prior=100,
+            ticker="TEST",
+            spread_bps=300,
+            spread_bps_prior=100,
             publication_date=PUB_DATE,
         )
         signal = compute_short_interest_signal(si, credit, Sleeve.C)
@@ -120,7 +121,9 @@ class TestCreditWideningEventReport:
 
     def test_small_widening_no_event(self):
         credit = CreditData(
-            ticker="TEST", spread_bps=150, spread_bps_prior=100,
+            ticker="TEST",
+            spread_bps=150,
+            spread_bps_prior=100,
             publication_date=PUB_DATE,
         )
         event, widening, report_required = check_credit_widening(credit)
@@ -140,7 +143,9 @@ class TestMissingBondDataGraceful:
 
     def test_no_prior_spread_graceful(self):
         credit = CreditData(
-            ticker="TEST", spread_bps=200, spread_bps_prior=None,
+            ticker="TEST",
+            spread_bps=200,
+            spread_bps_prior=None,
             publication_date=PUB_DATE,
         )
         event, widening, report = check_credit_widening(credit)

@@ -11,7 +11,6 @@ from durable.factors.valuation import (
     fcf_yield_score,
     implied_growth,
     reverse_dcf_gap,
-    reverse_dcf_score,
     shareholder_yield_score,
     valuation_score,
 )
@@ -95,9 +94,15 @@ class TestValuationScore:
     def test_excluded_negative_ebit(self):
         """EBIT <= 0 => excluded."""
         score, breakdown = valuation_score(
-            ev=5000, ebit=-100, fcf=200, fcf_5y_cagr=0.08,
-            market_cap=4000, dividend_yield=0.02, buyback_yield=0.03,
-            debt_paydown_yield=0.01, risk_free_rate=0.04,
+            ev=5000,
+            ebit=-100,
+            fcf=200,
+            fcf_5y_cagr=0.08,
+            market_cap=4000,
+            dividend_yield=0.02,
+            buyback_yield=0.03,
+            debt_paydown_yield=0.01,
+            risk_free_rate=0.04,
             fcf_5y_median=200,
         )
         assert score is None
@@ -106,9 +111,15 @@ class TestValuationScore:
     def test_excluded_ev_ebit_too_high(self):
         """EV/EBIT > 45 => excluded."""
         score, breakdown = valuation_score(
-            ev=50000, ebit=1000, fcf=800, fcf_5y_cagr=0.08,
-            market_cap=48000, dividend_yield=0.01, buyback_yield=0.01,
-            debt_paydown_yield=0.0, risk_free_rate=0.04,
+            ev=50000,
+            ebit=1000,
+            fcf=800,
+            fcf_5y_cagr=0.08,
+            market_cap=48000,
+            dividend_yield=0.01,
+            buyback_yield=0.01,
+            debt_paydown_yield=0.0,
+            risk_free_rate=0.04,
             fcf_5y_median=700,
         )
         assert score is None
@@ -117,9 +128,15 @@ class TestValuationScore:
     def test_excluded_negative_fcf_median(self):
         """5y median FCF <= 0 => excluded."""
         score, breakdown = valuation_score(
-            ev=5000, ebit=500, fcf=200, fcf_5y_cagr=0.05,
-            market_cap=4500, dividend_yield=0.02, buyback_yield=0.0,
-            debt_paydown_yield=0.0, risk_free_rate=0.04,
+            ev=5000,
+            ebit=500,
+            fcf=200,
+            fcf_5y_cagr=0.05,
+            market_cap=4500,
+            dividend_yield=0.02,
+            buyback_yield=0.0,
+            debt_paydown_yield=0.0,
+            risk_free_rate=0.04,
             fcf_5y_median=-100,
         )
         assert score is None
@@ -129,9 +146,15 @@ class TestValuationScore:
         """Implied growth > 25% => excluded."""
         # EV/FCF=80x at WACC=10% implies ~26.7% growth, EV/EBIT=40 passes cap
         score, breakdown = valuation_score(
-            ev=8000, ebit=200, fcf=100, fcf_5y_cagr=0.05,
-            market_cap=7500, dividend_yield=0.0, buyback_yield=0.0,
-            debt_paydown_yield=0.0, risk_free_rate=0.05,
+            ev=8000,
+            ebit=200,
+            fcf=100,
+            fcf_5y_cagr=0.05,
+            market_cap=7500,
+            dividend_yield=0.0,
+            buyback_yield=0.0,
+            debt_paydown_yield=0.0,
+            risk_free_rate=0.05,
             fcf_5y_median=100,
         )
         assert score is None
@@ -140,9 +163,15 @@ class TestValuationScore:
     def test_valid_score_in_range(self):
         """A reasonable company scores between 0 and 35."""
         score, breakdown = valuation_score(
-            ev=10000, ebit=1000, fcf=800, fcf_5y_cagr=0.08,
-            market_cap=9000, dividend_yield=0.02, buyback_yield=0.03,
-            debt_paydown_yield=0.01, risk_free_rate=0.04,
+            ev=10000,
+            ebit=1000,
+            fcf=800,
+            fcf_5y_cagr=0.08,
+            market_cap=9000,
+            dividend_yield=0.02,
+            buyback_yield=0.03,
+            debt_paydown_yield=0.01,
+            risk_free_rate=0.04,
             fcf_5y_median=700,
         )
         assert score is not None
@@ -154,9 +183,15 @@ class TestValuationScore:
     def test_wacc_floor(self):
         """WACC is floored at 8% even if risk_free + ERP is lower."""
         _, breakdown = valuation_score(
-            ev=10000, ebit=1000, fcf=800, fcf_5y_cagr=0.08,
-            market_cap=9000, dividend_yield=0.02, buyback_yield=0.02,
-            debt_paydown_yield=0.0, risk_free_rate=0.01,
+            ev=10000,
+            ebit=1000,
+            fcf=800,
+            fcf_5y_cagr=0.08,
+            market_cap=9000,
+            dividend_yield=0.02,
+            buyback_yield=0.02,
+            debt_paydown_yield=0.0,
+            risk_free_rate=0.01,
             fcf_5y_median=700,
         )
         assert breakdown["wacc"] >= 0.08

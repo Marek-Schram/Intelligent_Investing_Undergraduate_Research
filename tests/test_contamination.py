@@ -4,10 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from durable.signals.contamination import (
-    ContaminationResult,
     alpha_decay_test,
     entity_anonymization_check,
     placebo_test,
@@ -19,7 +17,9 @@ def _make_feature_returns(n_dates=40, n_stocks=30, seed=42):
     dates = pd.date_range("2020-01-01", periods=n_dates, freq="QE")
     stocks = [f"S{i}" for i in range(n_stocks)]
     feature = pd.DataFrame(rng.standard_normal((n_dates, n_stocks)), index=dates, columns=stocks)
-    returns = pd.DataFrame(rng.standard_normal((n_dates, n_stocks)) * 0.05, index=dates, columns=stocks)
+    returns = pd.DataFrame(
+        rng.standard_normal((n_dates, n_stocks)) * 0.05, index=dates, columns=stocks
+    )
     return feature, returns, dates
 
 

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 CLAIMS_SCHEMA_FIELDS = [
     "claim_id",
     "claim",

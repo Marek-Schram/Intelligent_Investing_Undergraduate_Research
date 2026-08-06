@@ -25,7 +25,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 # Safety constants — NOT config-readable by design
 MIN_MARKET_CAP = 300e6
 MAX_MARKET_CAP = 3e9
@@ -73,9 +72,9 @@ def check_market_cap(market_cap: float | None) -> str | None:
     if market_cap is None:
         return "missing_market_cap"
     if market_cap < MIN_MARKET_CAP:
-        return f"market_cap_below_{MIN_MARKET_CAP/1e6:.0f}M"
+        return f"market_cap_below_{MIN_MARKET_CAP / 1e6:.0f}M"
     if market_cap > MAX_MARKET_CAP:
-        return f"market_cap_above_{MAX_MARKET_CAP/1e9:.0f}B"
+        return f"market_cap_above_{MAX_MARKET_CAP / 1e9:.0f}B"
     return None
 
 
@@ -84,7 +83,7 @@ def check_adv(adv_60d: float | None) -> str | None:
     if adv_60d is None:
         return "missing_adv"
     if adv_60d < MIN_ADV_60D:
-        return f"adv_{adv_60d/1e6:.2f}M_below_{MIN_ADV_60D/1e6:.1f}M"
+        return f"adv_{adv_60d / 1e6:.2f}M_below_{MIN_ADV_60D / 1e6:.1f}M"
     return None
 
 
@@ -93,9 +92,9 @@ def check_float(float_value: float | None, float_shares: float | None) -> str | 
     if float_value is None or float_shares is None:
         return "missing_float_data"
     if float_value < MIN_FLOAT_VALUE:
-        return f"float_value_below_{MIN_FLOAT_VALUE/1e6:.0f}M"
+        return f"float_value_below_{MIN_FLOAT_VALUE / 1e6:.0f}M"
     if float_shares < MIN_FLOAT_SHARES:
-        return f"float_shares_below_{MIN_FLOAT_SHARES/1e6:.0f}M"
+        return f"float_shares_below_{MIN_FLOAT_SHARES / 1e6:.0f}M"
     return None
 
 

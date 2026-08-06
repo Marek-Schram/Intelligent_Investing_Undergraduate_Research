@@ -59,12 +59,15 @@ class TestTotalCostBps:
 
     def test_includes_all_components(self):
         cost = total_cost_bps(
-            shares=1000, price=50.0, adv_shares=100_000,
-            volatility=0.30, half_spread_bps=5.0,
+            shares=1000,
+            price=50.0,
+            adv_shares=100_000,
+            volatility=0.30,
+            half_spread_bps=5.0,
         )
         # participation = 1000/100000 = 0.01
         part = 0.01
-        expected_temp = ETA * 0.30 * (part ** ALPHA) * 10_000
+        expected_temp = ETA * 0.30 * (part**ALPHA) * 10_000
         expected_perm = GAMMA * 0.30 * part * 10_000
         expected_total = 5.0 + expected_temp + expected_perm
         assert cost == pytest.approx(expected_total, rel=1e-6)
@@ -97,8 +100,11 @@ class TestThinNameCostsMore:
 
         # Sleeve E: thin name, wide spread, volatile
         sleeve_e_cost = total_cost_bps(
-            shares=5000, price=30.0, adv_shares=100_000,
-            volatility=0.50, half_spread_bps=12.0,
+            shares=5000,
+            price=30.0,
+            adv_shares=100_000,
+            volatility=0.50,
+            half_spread_bps=12.0,
         )
         # The model correctly shows thin names cost more than the flat assumption
         assert sleeve_e_cost > flat_large_cap_bps * 2

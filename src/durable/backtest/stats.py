@@ -143,9 +143,11 @@ def compute_stats(
 
     # Downside volatility
     downside_returns = returns[returns < 0]
-    dsvol = float(np.std(downside_returns, ddof=1) * np.sqrt(periods_per_year)) if len(
-        downside_returns
-    ) > 1 else 0.0
+    dsvol = (
+        float(np.std(downside_returns, ddof=1) * np.sqrt(periods_per_year))
+        if len(downside_returns) > 1
+        else 0.0
+    )
 
     return PerformanceStats(
         total_return=total,

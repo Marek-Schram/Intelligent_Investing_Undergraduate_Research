@@ -50,7 +50,7 @@ class ExclusionReason:
 
 
 def build_universe(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     as_of_date: date,
     params: dict | None = None,
 ) -> tuple[pd.DataFrame, list[ExclusionReason]]:
@@ -70,7 +70,9 @@ def build_universe(
     # Get all tickers that have fundamentals available as of this date
     fundamentals = as_of(conn, "facts_fundamentals", as_of_date)
     if fundamentals.empty:
-        return pd.DataFrame(columns=["ticker", "market_cap", "adv_60d", "price", "sic"]), exclusions
+        return pd.DataFrame(
+            columns=["ticker", "market_cap", "adv_60d", "price", "sic"]
+        ), exclusions
 
     tickers_with_data = fundamentals["ticker"].unique().tolist()
 
@@ -93,9 +95,7 @@ def build_universe(
         adv_60d = (recent_bars["close"] * recent_bars["volume"]).median()
 
         # Market cap from shares outstanding × price
-        shares_data = ticker_fundamentals[
-            ticker_fundamentals["field"] == "shares_outstanding"
-        ]
+        shares_data = ticker_fundamentals[ticker_fundamentals["field"] == "shares_outstanding"]
         if shares_data.empty:
             exclusions.append(ExclusionReason(ticker, "no_shares_outstanding"))
             continue
@@ -104,9 +104,9 @@ def build_universe(
         market_cap = latest_shares * latest_price
 
         # Count quarters filed
-        quarters_filed = ticker_fundamentals[
-            ticker_fundamentals["field"] == "revenue"
-        ]["period_end"].nunique()
+        quarters_filed = ticker_fundamentals[ticker_fundamentals["field"] == "revenue"][
+            "period_end"
+        ].nunique()
 
         # Get SIC code if available (would come from company metadata)
         sic = _get_sic_code(ticker_fundamentals)
@@ -124,7 +124,9 @@ def build_universe(
         )
 
     if not universe_rows:
-        return pd.DataFrame(columns=["ticker", "market_cap", "adv_60d", "price", "sic"]), exclusions
+        return pd.DataFrame(
+            columns=["ticker", "market_cap", "adv_60d", "price", "sic"]
+        ), exclusions
 
     df = pd.DataFrame(universe_rows)
 
@@ -135,9 +137,7 @@ def build_universe(
     return df, exclusions
 
 
-def _apply_filters(
-    df: pd.DataFrame, params: dict
-) -> tuple[pd.DataFrame, list[ExclusionReason]]:
+def _apply_filters(df: pd.DataFrame, params: dict) -> tuple[pd.DataFrame, list[ExclusionReason]]:
     """Apply universe filters. Every exclusion gets a reason."""
     exclusions: list[ExclusionReason] = []
     mask = pd.Series(True, index=df.index)
@@ -197,7 +197,7 @@ def is_financial(sic: str | None) -> bool:
 
 
 def universe_contains_delisted(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     as_of_date: date,
     expected_tickers: list[str],
 ) -> dict[str, bool]:

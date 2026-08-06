@@ -5,9 +5,8 @@ from __future__ import annotations
 import pytest
 
 from durable.research.calibration import (
-    CalibrationBin,
-    Prediction,
     SPARSE_BIN_THRESHOLD,
+    Prediction,
     brier_score,
     by_emotional_state,
     calibration_curve,
@@ -89,18 +88,17 @@ class TestDiscrimination:
 
     def test_good_discrimination(self):
         """High confidence right, low confidence wrong => positive discrimination."""
-        preds = (
-            [Prediction(90, True)] * 5
-            + [Prediction(55, False)] * 5
-        )
+        preds = [Prediction(90, True)] * 5 + [Prediction(55, False)] * 5
         disc = discrimination(preds)
         assert disc > 0
 
     def test_no_discrimination(self):
         """Same hit rate at all confidence levels."""
         preds = (
-            [Prediction(90, True)] * 3 + [Prediction(90, False)] * 2
-            + [Prediction(55, True)] * 3 + [Prediction(55, False)] * 2
+            [Prediction(90, True)] * 3
+            + [Prediction(90, False)] * 2
+            + [Prediction(55, True)] * 3
+            + [Prediction(55, False)] * 2
         )
         disc = discrimination(preds)
         assert disc == pytest.approx(0.0, abs=0.01)

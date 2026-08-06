@@ -16,12 +16,11 @@ PURE FUNCTIONS ONLY: no I/O, network, wall-clock, or config lookups.
 
 from __future__ import annotations
 
-
 # Calibration constants — conservative retail-scale defaults, deliberately pessimistic.
 # Published in methodology.md. An impact model is an assumption, not a measurement.
-ETA = 2.5e-6      # temporary impact coefficient
-GAMMA = 2.5e-7    # permanent impact coefficient
-ALPHA = 0.5       # power on participation rate; 0.5 = square-root law
+ETA = 2.5e-6  # temporary impact coefficient
+GAMMA = 2.5e-7  # permanent impact coefficient
+ALPHA = 0.5  # power on participation rate; 0.5 = square-root law
 
 
 def participation_rate(shares: float, adv_shares: float) -> float:
@@ -41,7 +40,7 @@ def temporary_impact(
 
     Square-root scaling: doubling size raises cost ~1.41x, not 2x.
     """
-    return eta * volatility * (participation ** alpha) * 10_000
+    return eta * volatility * (participation**alpha) * 10_000
 
 
 def permanent_impact(

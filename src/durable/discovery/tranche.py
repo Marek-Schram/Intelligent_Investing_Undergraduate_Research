@@ -27,7 +27,6 @@ from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
 
-
 TRANCHE_FRACTIONS = (0.40, 0.30, 0.30)
 MIN_DAYS_BETWEEN_TRANCHES = 90
 MAX_POSITION_PCT_TOTAL = 0.0025
@@ -166,7 +165,9 @@ def next_tranche_gate(
                 False,
                 f"T2 requires 2 additional quarters filed, have {additional_quarters}",
             )
-        return TrancheGateResult(True, "T2 gate passed: 2 additional quarters with durability held")
+        return TrancheGateResult(
+            True, "T2 gate passed: 2 additional quarters with durability held"
+        )
 
     if state.current_tranche == 2:
         additional_quarters = facts.quarters_filed - state.quarters_filed_at_entry

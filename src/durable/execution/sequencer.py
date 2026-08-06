@@ -27,18 +27,18 @@ from decimal import ROUND_DOWN, Decimal
 @dataclass(frozen=True)
 class Order:
     ticker: str
-    side: str            # "buy" | "sell"
+    side: str  # "buy" | "sell"
     notional: Decimal
     limit_price: Decimal
-    lot_ids: list[str] | None    # required on sells; never let the broker default to FIFO
-    reason: str                  # "name_change" | "rebalance" | "trim" | sell rule S1-S5
+    lot_ids: list[str] | None  # required on sells; never let the broker default to FIFO
+    reason: str  # "name_change" | "rebalance" | "trim" | sell rule S1-S5
 
 
 @dataclass(frozen=True)
 class SequencedPlan:
     sells: list[Order]
     buys: list[Order]
-    scale_applied: Decimal       # 1.0 = fully funded; < 1.0 = buys scaled pro-rata
+    scale_applied: Decimal  # 1.0 = fully funded; < 1.0 = buys scaled pro-rata
     cash_before: Decimal
     cash_after_sells: Decimal
     cash_after_buys: Decimal
@@ -101,14 +101,16 @@ def sequence(
     for b in buys:
         scaled_notional = (b.notional * scale).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
         if scaled_notional > 0:
-            scaled_buys.append(Order(
-                ticker=b.ticker,
-                side="buy",
-                notional=scaled_notional,
-                limit_price=b.limit_price,
-                lot_ids=b.lot_ids,
-                reason=b.reason,
-            ))
+            scaled_buys.append(
+                Order(
+                    ticker=b.ticker,
+                    side="buy",
+                    notional=scaled_notional,
+                    limit_price=b.limit_price,
+                    lot_ids=b.lot_ids,
+                    reason=b.reason,
+                )
+            )
 
     actual_buy_total = sum(b.notional for b in scaled_buys)
     buy_cost = actual_buy_total * cost_rate
@@ -116,8 +118,7 @@ def sequence(
 
     if cash_after_buys < 0:
         raise InvariantViolation(
-            f"Negative cash after buys: {float(cash_after_buys):.2f}. "
-            "Sequencing logic is broken."
+            f"Negative cash after buys: {float(cash_after_buys):.2f}. Sequencing logic is broken."
         )
 
     plan = SequencedPlan(

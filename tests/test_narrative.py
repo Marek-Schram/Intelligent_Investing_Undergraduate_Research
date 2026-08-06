@@ -76,36 +76,25 @@ class TestOutperformedWithoutCI:
 
     def test_outperformed_with_bracket_ci_passes(self):
         """'outperformed' with [X%, Y%] CI passes."""
-        text = (
-            "The portfolio outperformed the benchmark by 1.2% [0.3%, 2.1%]. "
-            "MSFT detracted 2%."
-        )
+        text = "The portfolio outperformed the benchmark by 1.2% [0.3%, 2.1%]. MSFT detracted 2%."
         violations = _check_outperformed_without_ci(text)
         assert violations == []
 
     def test_outperformed_with_paren_ci_passes(self):
         """'outperformed' with (X% to Y%) CI passes."""
-        text = (
-            "The portfolio outperformed (0.5% to 2.3%). AAPL detracted 1%."
-        )
+        text = "The portfolio outperformed (0.5% to 2.3%). AAPL detracted 1%."
         violations = _check_outperformed_without_ci(text)
         assert violations == []
 
     def test_outperformed_with_ci_label_passes(self):
         """'outperformed' with '95% CI' label passes."""
-        text = (
-            "The portfolio outperformed the benchmark, 95% CI [0.1%, 1.9%]. "
-            "TSLA detracted 3%."
-        )
+        text = "The portfolio outperformed the benchmark, 95% CI [0.1%, 1.9%]. TSLA detracted 3%."
         violations = _check_outperformed_without_ci(text)
         assert violations == []
 
     def test_outperformed_with_plus_minus_passes(self):
         """'outperformed' with ± passes."""
-        text = (
-            "The portfolio outperformed the benchmark by 1.5% ± 0.8%. "
-            "XOM detracted 1%."
-        )
+        text = "The portfolio outperformed the benchmark by 1.5% ± 0.8%. XOM detracted 1%."
         violations = _check_outperformed_without_ci(text)
         assert violations == []
 
@@ -135,10 +124,7 @@ class TestUnqualifiedAlpha:
 
     def test_alpha_with_tstat_passes(self):
         """'alpha' with t-stat passes."""
-        text = (
-            "Factor-model alpha of +1.2% (t-stat = 1.85, |t| < 2). "
-            "MSFT detracted 2%."
-        )
+        text = "Factor-model alpha of +1.2% (t-stat = 1.85, |t| < 2). MSFT detracted 2%."
         violations = _check_unqualified_alpha(text)
         assert violations == []
 
@@ -150,19 +136,13 @@ class TestUnqualifiedAlpha:
 
     def test_alpha_with_insignificant_passes(self):
         """'alpha' described as insignificant passes."""
-        text = (
-            "The alpha is statistically insignificant at this sample size. "
-            "TSLA detracted 3%."
-        )
+        text = "The alpha is statistically insignificant at this sample size. TSLA detracted 3%."
         violations = _check_unqualified_alpha(text)
         assert violations == []
 
     def test_alpha_with_ci_passes(self):
         """'alpha' with CI passes."""
-        text = (
-            "Annualized alpha of 1.5% [-0.2%, 3.2%] 95% CI. "
-            "XOM detracted 0.5%."
-        )
+        text = "Annualized alpha of 1.5% [-0.2%, 3.2%] 95% CI. XOM detracted 0.5%."
         violations = _check_unqualified_alpha(text)
         assert violations == []
 
@@ -360,9 +340,7 @@ class TestRandomizedInputs:
         tickers = ["AAPL", "MSFT", "GOOG", "AMZN", "XOM", "JPM", "TSLA", "JNJ", "PG", "V"]
         best = rng.choice(tickers)
         worst = rng.choice([t for t in tickers if t != best])
-        worst_contrib = (
-            rng.uniform(-0.10, -0.03) if bad_loss else rng.uniform(-0.03, -0.001)
-        )
+        worst_contrib = rng.uniform(-0.10, -0.03) if bad_loss else rng.uniform(-0.03, -0.001)
         return {
             "best_ticker": best,
             "best_contrib": rng.uniform(0.005, 0.03),
@@ -418,10 +396,7 @@ class TestEdgeCases:
 
     def test_multiple_outperformed_one_ci(self):
         """Multiple 'outperformed' — only one needs CI context."""
-        text = (
-            "The portfolio outperformed [0.3%, 1.9%] 95% CI. "
-            "AAPL detracted 2%."
-        )
+        text = "The portfolio outperformed [0.3%, 1.9%] 95% CI. AAPL detracted 2%."
         violations = _check_outperformed_without_ci(text)
         assert violations == []
 

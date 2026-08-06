@@ -142,11 +142,13 @@ def run_cpcv(
         test_returns = period_returns[test_idx]
         sharpe = _compute_sharpe(test_returns)
 
-        paths.append(CPCVPath(
-            test_groups=test_group_indices,
-            sharpe=sharpe,
-            returns=test_returns,
-        ))
+        paths.append(
+            CPCVPath(
+                test_groups=test_group_indices,
+                sharpe=sharpe,
+                returns=test_returns,
+            )
+        )
 
     return paths
 

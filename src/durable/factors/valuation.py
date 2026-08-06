@@ -29,9 +29,7 @@ def implied_growth(
         return float("nan")
 
     def _dcf_error(g: float) -> float:
-        pv_fcf = sum(
-            fcf_0 * (1 + g) ** t / (1 + wacc) ** t for t in range(1, years + 1)
-        )
+        pv_fcf = sum(fcf_0 * (1 + g) ** t / (1 + wacc) ** t for t in range(1, years + 1))
         fcf_terminal = fcf_0 * (1 + g) ** years
         tv = fcf_terminal * (1 + terminal_growth) / (wacc - terminal_growth)
         pv_tv = tv / (1 + wacc) ** years
@@ -188,15 +186,17 @@ def valuation_score(
     total = ev_ebit_pts + fcf_pts + sh_yield_pts + rdcf_pts
     total = min(35.0, max(0.0, total))
 
-    breakdown.update({
-        "ev_ebit_ratio": round(ev_ebit_ratio, 2),
-        "ev_ebit_points": round(ev_ebit_pts, 2),
-        "fcf_yield": round(fcf_yield, 4),
-        "fcf_yield_points": round(fcf_pts, 2),
-        "shareholder_yield_points": round(sh_yield_pts, 2),
-        "reverse_dcf_gap": round(gap, 4) if gap is not None else None,
-        "reverse_dcf_points": round(rdcf_pts, 2),
-        "total": round(total, 2),
-    })
+    breakdown.update(
+        {
+            "ev_ebit_ratio": round(ev_ebit_ratio, 2),
+            "ev_ebit_points": round(ev_ebit_pts, 2),
+            "fcf_yield": round(fcf_yield, 4),
+            "fcf_yield_points": round(fcf_pts, 2),
+            "shareholder_yield_points": round(sh_yield_pts, 2),
+            "reverse_dcf_gap": round(gap, 4) if gap is not None else None,
+            "reverse_dcf_points": round(rdcf_pts, 2),
+            "total": round(total, 2),
+        }
+    )
 
     return total, breakdown

@@ -2,18 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
-
 from durable.discovery.score import (
-    DURABILITY_GATE_MIN,
-    EV_EBIT_EXCLUSION_THRESHOLD,
-    GateResult,
     POSITION_THRESHOLD,
-    QualityClaim,
     WATCHLIST_THRESHOLD,
-    _durability_subscore,
-    _quality_subscore,
-    _valuation_subscore,
+    GateResult,
+    QualityClaim,
     compute_discovery_score,
 )
 

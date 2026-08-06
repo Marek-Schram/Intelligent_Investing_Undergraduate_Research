@@ -166,9 +166,7 @@ def fetch_fundamentals(
         if field_name is None:
             continue
 
-        filed_at = datetime(
-            fact.filing_date.year, fact.filing_date.month, fact.filing_date.day
-        )
+        filed_at = datetime(fact.filing_date.year, fact.filing_date.month, fact.filing_date.day)
         available_at = _next_trading_day(fact.filing_date)
 
         rows.append(
@@ -213,7 +211,7 @@ def _deduplicate_facts(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def ingest_fundamentals(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     ticker: str,
     identity: str,
     snapshot_id: str | None = None,
@@ -233,7 +231,7 @@ def ingest_fundamentals(
 
 
 def get_quarterly_field(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     ticker: str,
     field: str,
     as_of_date: date | datetime,

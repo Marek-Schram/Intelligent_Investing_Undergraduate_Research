@@ -82,7 +82,9 @@ def newey_west_se(
     return float(se)
 
 
-def t_stat_newey_west(returns: np.ndarray, benchmark_returns: np.ndarray | None = None) -> tuple[float, float]:
+def t_stat_newey_west(
+    returns: np.ndarray, benchmark_returns: np.ndarray | None = None
+) -> tuple[float, float]:
     """Compute t-statistic using Newey-West standard errors.
 
     Returns (t_stat, se).
@@ -165,13 +167,15 @@ def format_ablation_table(results: list[AblationResult]) -> pd.DataFrame:
     """Format ablation results as a summary table."""
     rows = []
     for r in results:
-        rows.append({
-            "variant": r.variant.value,
-            "excess_return_ann": f"{r.excess_return:.4f}",
-            "t_stat": f"{r.t_stat:.2f}",
-            "nw_se": f"{r.newey_west_se:.4f}",
-            "|t|>2": r.significant,
-            "sharpe": f"{r.sharpe:.2f}",
-            "n": r.n_periods,
-        })
+        rows.append(
+            {
+                "variant": r.variant.value,
+                "excess_return_ann": f"{r.excess_return:.4f}",
+                "t_stat": f"{r.t_stat:.2f}",
+                "nw_se": f"{r.newey_west_se:.4f}",
+                "|t|>2": r.significant,
+                "sharpe": f"{r.sharpe:.2f}",
+                "n": r.n_periods,
+            }
+        )
     return pd.DataFrame(rows)

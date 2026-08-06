@@ -5,11 +5,8 @@ from __future__ import annotations
 from math import comb
 
 import numpy as np
-import pytest
 
 from durable.backtest.cpcv import (
-    CPCVPath,
-    CPCVSummary,
     embargo_indices,
     generate_paths,
     make_groups,

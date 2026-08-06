@@ -102,9 +102,7 @@ class TestDisclosureBlock:
         assert "Single universe" in rendered
         assert "single realized path" in rendered
 
-    def test_validate_raises_on_empty_source(
-        self, sample_metadata: ArtifactMetadata
-    ):
+    def test_validate_raises_on_empty_source(self, sample_metadata: ArtifactMetadata):
         """Validation raises when disclosure source is empty."""
         bad_disclosure = DisclosureBlock(
             source="",
@@ -129,9 +127,7 @@ class TestDisclosureBlock:
         with pytest.raises(ValueError, match="source"):
             validate_artifact(artifact)
 
-    def test_validate_raises_on_empty_limitations(
-        self, sample_metadata: ArtifactMetadata
-    ):
+    def test_validate_raises_on_empty_limitations(self, sample_metadata: ArtifactMetadata):
         """Validation raises when disclosure limitations is empty."""
         bad_disclosure = DisclosureBlock(
             source="valid source",

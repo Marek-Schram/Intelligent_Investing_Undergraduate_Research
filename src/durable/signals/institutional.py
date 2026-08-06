@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
-
 OVERLAY_CAP = 2
 
 
@@ -124,15 +123,17 @@ def compute_ownership_changes(
 
         change_type = classify_change(shares_current, shares_previous)
 
-        changes.append(OwnershipChange(
-            manager_name=manager_name,
-            cusip=cusip,
-            ticker=ticker,
-            change_type=change_type,
-            shares_current=shares_current,
-            shares_previous=shares_previous,
-            filed_at=filed_at,
-        ))
+        changes.append(
+            OwnershipChange(
+                manager_name=manager_name,
+                cusip=cusip,
+                ticker=ticker,
+                change_type=change_type,
+                shares_current=shares_current,
+                shares_previous=shares_previous,
+                filed_at=filed_at,
+            )
+        )
 
     return changes
 
@@ -171,7 +172,8 @@ def build_institutional_signal(
     """Build the institutional signal. available_at = filed_at."""
     overlay = compute_overlay(changes, tracked_managers)
     conviction_count = sum(
-        1 for c in changes
+        1
+        for c in changes
         if c.manager_name in {m.name for m in tracked_managers}
         and c.change_type in (ChangeType.NEW_POSITION, ChangeType.INCREASED)
     )

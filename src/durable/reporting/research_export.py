@@ -162,9 +162,7 @@ def validate_artifact(artifact: Artifact) -> None:
     for field_name in required_fields:
         value = getattr(artifact.disclosure, field_name, None)
         if not value or not value.strip():
-            raise ValueError(
-                f"Disclosure block field '{field_name}' is empty or missing."
-            )
+            raise ValueError(f"Disclosure block field '{field_name}' is empty or missing.")
 
     if not isinstance(artifact.artifact_type, ArtifactType):
         raise ValueError(f"Invalid artifact type: {artifact.artifact_type!r}.")
@@ -191,9 +189,7 @@ def methodology_pins(artifacts: list[Artifact]) -> str:
         return "# Methodology\n\nNo artifacts generated.\n"
 
     # Sort artifacts deterministically by (type name, content hash) for byte-identical output.
-    sorted_artifacts = sorted(
-        artifacts, key=lambda a: (a.artifact_type.value, a.content_hash)
-    )
+    sorted_artifacts = sorted(artifacts, key=lambda a: (a.artifact_type.value, a.content_hash))
 
     lines: list[str] = []
     lines.append("# Methodology")

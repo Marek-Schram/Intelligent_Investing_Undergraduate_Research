@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from durable.backtest.stats import (
     PerformanceStats,
     cagr,
-    calmar_ratio,
     compute_stats,
     max_drawdown,
     sharpe_ratio,
@@ -28,8 +26,9 @@ class TestSharpeRatio:
         std(ddof=1) = 0.016026
         Sharpe = (0.011667 / 0.016026) * sqrt(12) = 2.5230...
         """
-        returns = np.array([0.01, 0.02, -0.01, 0.03, 0.01, 0.02,
-                            0.00, -0.02, 0.04, 0.01, 0.02, 0.01])
+        returns = np.array(
+            [0.01, 0.02, -0.01, 0.03, 0.01, 0.02, 0.00, -0.02, 0.04, 0.01, 0.02, 0.01]
+        )
         result = sharpe_ratio(returns, risk_free_rate=0.0, periods_per_year=12)
 
         # Hand computation
@@ -118,8 +117,9 @@ class TestSortino:
 class TestComputeStats:
     def test_returns_all_fields(self):
         """compute_stats returns a complete PerformanceStats."""
-        returns = np.array([0.01, 0.02, -0.01, 0.03, 0.01, 0.02,
-                            0.00, -0.02, 0.04, 0.01, 0.02, 0.01])
+        returns = np.array(
+            [0.01, 0.02, -0.01, 0.03, 0.01, 0.02, 0.00, -0.02, 0.04, 0.01, 0.02, 0.01]
+        )
         stats = compute_stats(returns)
         assert isinstance(stats, PerformanceStats)
         assert stats.n_periods == 12

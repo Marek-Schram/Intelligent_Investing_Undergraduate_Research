@@ -15,7 +15,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-
 TOXIC_FINANCING_TERMS = (
     "variable-rate conversion",
     "variable conversion",
@@ -164,9 +163,7 @@ def check_litigation_enforcement(
 def check_distance_to_default(dd: float | None) -> ManipulationFlag:
     """Distance-to-default < 1.5 => flag."""
     if dd is None:
-        return ManipulationFlag(
-            check="distance_to_default", triggered=False, detail="no DD data"
-        )
+        return ManipulationFlag(check="distance_to_default", triggered=False, detail="no DD data")
     triggered = dd < 1.5
     detail = f"DD={dd:.2f}"
     return ManipulationFlag(check="distance_to_default", triggered=triggered, detail=detail)
@@ -175,9 +172,7 @@ def check_distance_to_default(dd: float | None) -> ManipulationFlag:
 def check_short_interest(si_pct_float: float | None) -> ManipulationFlag:
     """Short interest > 10% of float => flag."""
     if si_pct_float is None:
-        return ManipulationFlag(
-            check="short_interest", triggered=False, detail="no SI data"
-        )
+        return ManipulationFlag(check="short_interest", triggered=False, detail="no SI data")
     triggered = si_pct_float > 0.10
     detail = f"SI={si_pct_float:.1%} of float"
     return ManipulationFlag(check="short_interest", triggered=triggered, detail=detail)
@@ -186,9 +181,7 @@ def check_short_interest(si_pct_float: float | None) -> ManipulationFlag:
 def check_unsolicited_source(from_unsolicited: bool = False) -> ManipulationFlag:
     """Candidate from unsolicited source (social media, DMs, etc.) => permanent exclusion."""
     detail = "unsolicited source" if from_unsolicited else "systematic screen"
-    return ManipulationFlag(
-        check="unsolicited_source", triggered=from_unsolicited, detail=detail
-    )
+    return ManipulationFlag(check="unsolicited_source", triggered=from_unsolicited, detail=detail)
 
 
 def run_manipulation_screen(

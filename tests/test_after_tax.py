@@ -370,9 +370,7 @@ class TestCarryforwardPersistence:
         )
 
         # Year 1: small gains
-        result_y1 = apply_carryforward(
-            cf, st_gains=Decimal("2000"), lt_gains=Decimal("1000")
-        )
+        result_y1 = apply_carryforward(cf, st_gains=Decimal("2000"), lt_gains=Decimal("1000"))
         # ST cf: 15000 - 2000 = 13000 remaining
         # LT cf: 5000 - 1000 = 4000 remaining
         # Total remaining after offsets: 17000, then $3k ordinary
@@ -400,9 +398,7 @@ class TestCarryforwardPersistence:
             long_term=Decimal("0"),
         )
         # Only LT gains this year — ST carryforward crosses over
-        result = apply_carryforward(
-            cf, st_gains=Decimal("0"), lt_gains=Decimal("3000")
-        )
+        result = apply_carryforward(cf, st_gains=Decimal("0"), lt_gains=Decimal("3000"))
 
         # ST cf offsets LT gains: 5000 - 3000 = 2000 remaining ST cf
         assert result.taxable_gains_after == Decimal("0")
@@ -517,12 +513,8 @@ class TestDecimalPrecision:
     def test_no_float_in_tax_alpha(self):
         """TaxAlphaResult fields are all Decimal."""
         result = tax_alpha_vs_fifo(
-            optimal_gains=[
-                RealizedGain(Decimal("11000"), Decimal("10000"), True)
-            ],
-            fifo_gains=[
-                RealizedGain(Decimal("11000"), Decimal("10000"), False)
-            ],
+            optimal_gains=[RealizedGain(Decimal("11000"), Decimal("10000"), True)],
+            fifo_gains=[RealizedGain(Decimal("11000"), Decimal("10000"), False)],
             portfolio_value=Decimal("100000"),
         )
 

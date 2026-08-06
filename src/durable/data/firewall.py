@@ -274,13 +274,15 @@ def audit(conn: duckdb.DuckDBPyConnection, as_of: pd.Timestamp) -> pd.DataFrame:
         n_future = result[0]
         if n_future > 0:
             detail = f"{n_future} rows have available_at > {as_of_ts}"
-            violations.append({
-                "table_name": table,
-                "as_of": as_of_ts,
-                "n_rows": n_future,
-                "detail": detail,
-                "violation_type": "future_data",
-            })
+            violations.append(
+                {
+                    "table_name": table,
+                    "as_of": as_of_ts,
+                    "n_rows": n_future,
+                    "detail": detail,
+                    "violation_type": "future_data",
+                }
+            )
             _log_violation(conn, table, as_of_ts, n_future, detail)
             logger.warning("Firewall violation: %s — %s", table, detail)
 
@@ -293,9 +295,11 @@ def audit(conn: duckdb.DuckDBPyConnection, as_of: pd.Timestamp) -> pd.DataFrame:
 
     for table, event_col, filing_col, min_lag in _lagged_checks:
         try:
-            df = conn.execute(
-                f"SELECT * FROM {table} WHERE available_at <= ?", [as_of_ts]
-            ).fetch_arrow_table().to_pandas()
+            df = (
+                conn.execute(f"SELECT * FROM {table} WHERE available_at <= ?", [as_of_ts])
+                .fetch_arrow_table()
+                .to_pandas()
+            )
         except Exception:
             continue
 
@@ -307,13 +311,15 @@ def audit(conn: duckdb.DuckDBPyConnection, as_of: pd.Timestamp) -> pd.DataFrame:
         except LeakageError as e:
             detail = str(e)[:500]
             n_rows = len(df)
-            violations.append({
-                "table_name": table,
-                "as_of": as_of_ts,
-                "n_rows": n_rows,
-                "detail": detail,
-                "violation_type": "lag_violation",
-            })
+            violations.append(
+                {
+                    "table_name": table,
+                    "as_of": as_of_ts,
+                    "n_rows": n_rows,
+                    "detail": detail,
+                    "violation_type": "lag_violation",
+                }
+            )
             _log_violation(conn, table, as_of_ts, n_rows, detail)
             logger.warning("Firewall lag violation: %s — %s", table, detail[:200])
 

@@ -26,8 +26,16 @@ class TestClaimsSchema:
 
     def test_all_required_fields(self):
         expected = {
-            "claim_id", "claim", "source", "authors", "year",
-            "doi", "supported_by", "contradicted_by", "used_in", "notes",
+            "claim_id",
+            "claim",
+            "source",
+            "authors",
+            "year",
+            "doi",
+            "supported_by",
+            "contradicted_by",
+            "used_in",
+            "notes",
         }
         assert set(CLAIMS_SCHEMA_FIELDS) == expected
 
@@ -47,10 +55,17 @@ class TestContradictedBy:
 
     def test_find_claims_without_contradiction(self):
         ledger = [
-            Claim("C1", "Neglect premium exists", "Arbel 1982", "Arbel", 1982,
-                  contradicted_by="Beard & Sias 1997"),
-            Claim("C2", "Small-cap premium", "Banz 1981", "Banz", 1981,
-                  contradicted_by=""),  # Missing!
+            Claim(
+                "C1",
+                "Neglect premium exists",
+                "Arbel 1982",
+                "Arbel",
+                1982,
+                contradicted_by="Beard & Sias 1997",
+            ),
+            Claim(
+                "C2", "Small-cap premium", "Banz 1981", "Banz", 1981, contradicted_by=""
+            ),  # Missing!
         ]
         missing = find_claims_without_contradiction(ledger)
         assert len(missing) == 1

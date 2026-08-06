@@ -25,7 +25,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr, mannwhitneyu
+from scipy.stats import mannwhitneyu, spearmanr
 
 
 @dataclass(frozen=True)
@@ -34,11 +34,11 @@ class ContaminationResult:
     training_cutoff: pd.Timestamp
     pre_cutoff_ic: float
     post_cutoff_ic: float
-    ic_decay: float              # pre - post
+    ic_decay: float  # pre - post
     decay_pvalue: float
     n_pre: int
     n_post: int
-    verdict: str                 # "clean" | "suspected" | "contaminated" | "insufficient_data"
+    verdict: str  # "clean" | "suspected" | "contaminated" | "insufficient_data"
 
 
 def _compute_ic_series(
@@ -166,8 +166,15 @@ def placebo_test(
 
 
 IDENTITY_MARKERS = [
-    "ticker", "symbol", "company name", "NYSE:", "NASDAQ:",
-    "Inc.", "Corp.", "Ltd.", "LLC",
+    "ticker",
+    "symbol",
+    "company name",
+    "NYSE:",
+    "NASDAQ:",
+    "Inc.",
+    "Corp.",
+    "Ltd.",
+    "LLC",
 ]
 
 

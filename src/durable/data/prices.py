@@ -94,7 +94,7 @@ def assert_not_adjusted_only(df: pd.DataFrame) -> None:
 
 
 def add_known_corporate_action(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     ticker: str,
     ex_date: date,
     action_type: str,
@@ -120,7 +120,7 @@ def add_known_corporate_action(
 
 
 def ingest_daily_bars(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     client: StockHistoricalDataClient,
     ticker: str,
     start: date,
@@ -139,7 +139,7 @@ def ingest_daily_bars(
 
 
 def get_total_return(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     ticker: str,
     start_date: date,
     end_date: date,

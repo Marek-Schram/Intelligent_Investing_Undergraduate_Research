@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
-
 SI_THRESHOLD_SLEEVE_C = 0.25
 SI_THRESHOLD_SLEEVE_E = 0.10
 CREDIT_WIDENING_THRESHOLD_BPS = 100  # 100bps widening triggers event report

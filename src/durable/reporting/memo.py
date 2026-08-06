@@ -142,7 +142,9 @@ def validate_bear_case(bc: BearCase, sleeve: str | None = None) -> list[str]:
 
     if not bc.citations:
         if effective_sleeve == "E":
-            issues.append(f"Bear case for {bc.ticker} (Sleeve E) has no filing citations — REQUIRED")
+            issues.append(
+                f"Bear case for {bc.ticker} (Sleeve E) has no filing citations — REQUIRED"
+            )
         else:
             issues.append(f"Bear case for {bc.ticker} has no filing citations — claims stripped")
 
@@ -246,9 +248,7 @@ def generate_memo(
             )
         is_valid, explanation = validate_narrative(bc.bear_text)
         if not is_valid:
-            raise PromotionalLanguageError(
-                f"Bear case for {bc.ticker}: {explanation}"
-            )
+            raise PromotionalLanguageError(f"Bear case for {bc.ticker}: {explanation}")
 
     memo = MemoContent(
         as_of=as_of,

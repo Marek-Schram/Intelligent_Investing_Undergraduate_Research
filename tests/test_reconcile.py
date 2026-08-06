@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
@@ -21,24 +19,30 @@ def _pos(data: list[dict]) -> pd.DataFrame:
 class TestReconcile:
     def test_matching_positions(self):
         """Exact match passes."""
-        internal = _pos([
-            {"ticker": "AAPL", "shares": 100.0},
-            {"ticker": "MSFT", "shares": 50.0},
-        ])
-        broker = _pos([
-            {"ticker": "AAPL", "shares": 100.0},
-            {"ticker": "MSFT", "shares": 50.0},
-        ])
+        internal = _pos(
+            [
+                {"ticker": "AAPL", "shares": 100.0},
+                {"ticker": "MSFT", "shares": 50.0},
+            ]
+        )
+        broker = _pos(
+            [
+                {"ticker": "AAPL", "shares": 100.0},
+                {"ticker": "MSFT", "shares": 50.0},
+            ]
+        )
         result = reconcile(internal, broker)
         assert result.matches is True
         assert result.mismatches == []
 
     def test_internal_only_mismatch(self):
         """Ticker in internal but not broker."""
-        internal = _pos([
-            {"ticker": "AAPL", "shares": 100.0},
-            {"ticker": "GOOG", "shares": 30.0},
-        ])
+        internal = _pos(
+            [
+                {"ticker": "AAPL", "shares": 100.0},
+                {"ticker": "GOOG", "shares": 30.0},
+            ]
+        )
         broker = _pos([{"ticker": "AAPL", "shares": 100.0}])
         result = reconcile(internal, broker)
         assert result.matches is False
@@ -47,10 +51,12 @@ class TestReconcile:
     def test_broker_only_mismatch(self):
         """Ticker in broker but not internal."""
         internal = _pos([{"ticker": "AAPL", "shares": 100.0}])
-        broker = _pos([
-            {"ticker": "AAPL", "shares": 100.0},
-            {"ticker": "TSLA", "shares": 20.0},
-        ])
+        broker = _pos(
+            [
+                {"ticker": "AAPL", "shares": 100.0},
+                {"ticker": "TSLA", "shares": 20.0},
+            ]
+        )
         result = reconcile(internal, broker)
         assert result.matches is False
         assert "TSLA" in result.broker_only

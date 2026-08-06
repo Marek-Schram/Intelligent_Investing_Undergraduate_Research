@@ -4,21 +4,17 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from durable.signals.institutional import (
+    OVERLAY_CAP,
     ChangeType,
     Holding13F,
-    InstitutionalSignal,
     ManagerConfig,
-    OVERLAY_CAP,
     OwnershipChange,
     build_institutional_signal,
     classify_change,
     compute_overlay,
     compute_ownership_changes,
 )
-
 
 FILED_AT = date(2025, 5, 15)
 PERIOD_END = date(2025, 3, 31)
@@ -41,8 +37,12 @@ class TestAvailableAtFiledAt:
     def test_holding_stores_both_but_signal_uses_filed(self):
         """period_end stored on Holding13F but never flows to available_at."""
         holding = Holding13F(
-            cusip="12345678", ticker="TEST", shares=1000, value=50000,
-            filed_at=FILED_AT, period_end=PERIOD_END,
+            cusip="12345678",
+            ticker="TEST",
+            shares=1000,
+            value=50000,
+            filed_at=FILED_AT,
+            period_end=PERIOD_END,
         )
         assert holding.period_end == PERIOD_END
         assert holding.filed_at == FILED_AT

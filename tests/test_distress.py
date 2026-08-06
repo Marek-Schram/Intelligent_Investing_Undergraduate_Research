@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pytest
 
 from durable.signals.distress import (
     DD_THRESHOLD_EXCLUSION,
     DDFlag,
-    DistanceToDefaultResult,
     compute_distance_to_default,
     is_financial,
     solve_merton,
@@ -36,7 +34,7 @@ class TestPublishedWorkedExample:
             time_horizon=1.0,
         )
         assert converged is True
-        assert V == pytest.approx(12.40, abs=0.1)
+        assert pytest.approx(12.40, abs=0.1) == V
 
     def test_asset_volatility_converges(self):
         V, sigma_V, converged = solve_merton(

@@ -4,17 +4,12 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from durable.discovery.neglect import (
-    MAX_NEGLECT_SCORE,
-    NeglectInputs,
-    NeglectResult,
-    compute_neglect_score,
     _score_analyst_count,
+    _score_initiation,
     _score_institutional_ownership,
     _score_media_mentions,
-    _score_initiation,
+    compute_neglect_score,
 )
 
 
@@ -150,4 +145,5 @@ class TestComputeNeglectScore:
     def test_module_comment_states_premium_contested(self):
         """Module comment states the premium is contested — acceptance criterion."""
         import durable.discovery.neglect as mod
+
         assert "contested" in mod.__doc__.lower()

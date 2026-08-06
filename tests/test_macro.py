@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 
 import pandas as pd
 import pytest
@@ -21,7 +21,9 @@ class TestFredFetch:
     def test_fetch_dgs10(self):
         """DGS10 returns data, percent format converted to raw rate."""
         import os
+
         from dotenv import load_dotenv
+
         load_dotenv()
         api_key = os.getenv("FRED_API_KEY")
         if not api_key:
@@ -40,7 +42,9 @@ class TestFredFetch:
     def test_fetch_all_fred(self):
         """Multiple series fetched together."""
         import os
+
         from dotenv import load_dotenv
+
         load_dotenv()
         api_key = os.getenv("FRED_API_KEY")
         if not api_key:
@@ -96,13 +100,15 @@ class TestIngestMacro:
     def test_ingest_and_query(self, conn):
         """Macro data ingests and is queryable via as_of."""
         import os
+
         from dotenv import load_dotenv
+
         load_dotenv()
         api_key = os.getenv("FRED_API_KEY")
         if not api_key:
             pytest.skip("FRED_API_KEY not set")
 
-        from durable.data.macro import ingest_macro, get_risk_free_rate
+        from durable.data.macro import get_risk_free_rate, ingest_macro
 
         ingest_macro(conn, api_key, series_ids=["DGS10"], snapshot_id="test-macro")
 

@@ -158,7 +158,9 @@ def generate_proposal(
     holds: list[str] = []
     wash_sale_blocks: list[str] = []
 
-    held_tickers = set(current_holdings["ticker"].tolist()) if not current_holdings.empty else set()
+    held_tickers = (
+        set(current_holdings["ticker"].tolist()) if not current_holdings.empty else set()
+    )
 
     # Determine sells
     for _, holding in current_holdings.iterrows():
@@ -229,8 +231,7 @@ def generate_proposal(
     # Determine buys: top-ranked tickers not currently held
     if not scores.empty:
         eligible = scores[
-            (~scores["ticker"].isin(held_tickers))
-            & (~scores["is_excluded"])
+            (~scores["ticker"].isin(held_tickers)) & (~scores["is_excluded"])
         ].sort_values("rank")
 
         n_to_buy = max(0, target_n - len(holds))

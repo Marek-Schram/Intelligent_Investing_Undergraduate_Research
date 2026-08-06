@@ -24,7 +24,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
-
 MAX_NEGLECT_SCORE = 25
 
 

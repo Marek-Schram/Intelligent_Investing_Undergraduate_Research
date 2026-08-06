@@ -47,12 +47,12 @@ def reconcile(
     mismatches = []
     share_diffs = []
 
-    internal_tickers = set(
-        internal_positions["ticker"].tolist()
-    ) if not internal_positions.empty else set()
-    broker_tickers = set(
-        broker_positions["ticker"].tolist()
-    ) if not broker_positions.empty else set()
+    internal_tickers = (
+        set(internal_positions["ticker"].tolist()) if not internal_positions.empty else set()
+    )
+    broker_tickers = (
+        set(broker_positions["ticker"].tolist()) if not broker_positions.empty else set()
+    )
 
     internal_only = sorted(internal_tickers - broker_tickers)
     broker_only = sorted(broker_tickers - internal_tickers)
@@ -73,12 +73,14 @@ def reconcile(
         )
         diff = abs(int_shares - brk_shares)
         if diff > tolerance:
-            share_diffs.append({
-                "ticker": ticker,
-                "internal_shares": int_shares,
-                "broker_shares": brk_shares,
-                "diff": diff,
-            })
+            share_diffs.append(
+                {
+                    "ticker": ticker,
+                    "internal_shares": int_shares,
+                    "broker_shares": brk_shares,
+                    "diff": diff,
+                }
+            )
             mismatches.append({"ticker": ticker, "type": "share_mismatch", "diff": diff})
 
     matches = len(mismatches) == 0

@@ -150,11 +150,13 @@ def screen_coverage_gap(
             and analyst_count <= 2
             and inst_pct < 0.40
         ):
-            hits.append(ScreenHit(
-                ticker=c["ticker"],
-                screen=ScreenType.COVERAGE_GAP,
-                detail=f"analysts={c.get('analyst_count')}, inst={c.get('institutional_pct'):.0%}",
-            ))
+            hits.append(
+                ScreenHit(
+                    ticker=c["ticker"],
+                    screen=ScreenType.COVERAGE_GAP,
+                    detail=f"analysts={c.get('analyst_count')}, inst={c.get('institutional_pct'):.0%}",
+                )
+            )
     return hits
 
 
@@ -166,11 +168,13 @@ def screen_boring_industry(
     for c in candidates:
         sic = str(c.get("sic_code", ""))
         if sic in BORING_SIC_GROUPS and (c.get("durability_score") or 0) >= 30:
-            hits.append(ScreenHit(
-                ticker=c["ticker"],
-                screen=ScreenType.BORING_INDUSTRY,
-                detail=f"SIC={sic}, durability={c.get('durability_score')}",
-            ))
+            hits.append(
+                ScreenHit(
+                    ticker=c["ticker"],
+                    screen=ScreenType.BORING_INDUSTRY,
+                    detail=f"SIC={sic}, durability={c.get('durability_score')}",
+                )
+            )
     return hits
 
 
@@ -183,20 +187,16 @@ def screen_insider_cluster(
     """
     hits = []
     for c in candidates:
-        purchases = [
-            t for t in c.get("form4_transactions", [])
-            if t.get("code") == "P"
-        ]
+        purchases = [t for t in c.get("form4_transactions", []) if t.get("code") == "P"]
         unique_insiders = {t.get("insider_name") for t in purchases}
-        if (
-            len(unique_insiders) >= 2
-            and (c.get("analyst_count") or 99) < 3
-        ):
-            hits.append(ScreenHit(
-                ticker=c["ticker"],
-                screen=ScreenType.INSIDER_CLUSTER,
-                detail=f"{len(unique_insiders)} insiders, code P only",
-            ))
+        if len(unique_insiders) >= 2 and (c.get("analyst_count") or 99) < 3:
+            hits.append(
+                ScreenHit(
+                    ticker=c["ticker"],
+                    screen=ScreenType.INSIDER_CLUSTER,
+                    detail=f"{len(unique_insiders)} insiders, code P only",
+                )
+            )
     return hits
 
 
@@ -208,11 +208,13 @@ def screen_spinoff(
     for c in candidates:
         months_since_spin = c.get("months_since_spinoff")
         if months_since_spin is not None and 12 <= months_since_spin <= 36:
-            hits.append(ScreenHit(
-                ticker=c["ticker"],
-                screen=ScreenType.SPINOFF,
-                detail=f"{months_since_spin} months post-spin",
-            ))
+            hits.append(
+                ScreenHit(
+                    ticker=c["ticker"],
+                    screen=ScreenType.SPINOFF,
+                    detail=f"{months_since_spin} months post-spin",
+                )
+            )
     return hits
 
 
@@ -225,11 +227,13 @@ def screen_filing_language(
         text = (c.get("filing_text") or "").lower()
         found = [kw for kw in FILING_LANGUAGE_KEYWORDS if kw in text]
         if found:
-            hits.append(ScreenHit(
-                ticker=c["ticker"],
-                screen=ScreenType.FILING_LANGUAGE,
-                detail=f"keywords: {', '.join(found)}",
-            ))
+            hits.append(
+                ScreenHit(
+                    ticker=c["ticker"],
+                    screen=ScreenType.FILING_LANGUAGE,
+                    detail=f"keywords: {', '.join(found)}",
+                )
+            )
     return hits
 
 
@@ -252,11 +256,13 @@ def screen_quiet_compounder(
             and roic > 0.12
             and analysts < 4
         ):
-            hits.append(ScreenHit(
-                ticker=c["ticker"],
-                screen=ScreenType.QUIET_COMPOUNDER,
-                detail=f"rev_cagr={rev_cagr:.1%}, fcf_cagr={fcf_cagr:.1%}, roic={roic:.1%}",
-            ))
+            hits.append(
+                ScreenHit(
+                    ticker=c["ticker"],
+                    screen=ScreenType.QUIET_COMPOUNDER,
+                    detail=f"rev_cagr={rev_cagr:.1%}, fcf_cagr={fcf_cagr:.1%}, roic={roic:.1%}",
+                )
+            )
     return hits
 
 
@@ -270,11 +276,13 @@ def screen_institutional_conviction(
         analysts = c.get("analyst_count") or 99
 
         if len(managers) >= 2 and analysts < 4:
-            hits.append(ScreenHit(
-                ticker=c["ticker"],
-                screen=ScreenType.INSTITUTIONAL_CONVICTION,
-                detail=f"managers: {', '.join(managers[:3])}",
-            ))
+            hits.append(
+                ScreenHit(
+                    ticker=c["ticker"],
+                    screen=ScreenType.INSTITUTIONAL_CONVICTION,
+                    detail=f"managers: {', '.join(managers[:3])}",
+                )
+            )
     return hits
 
 

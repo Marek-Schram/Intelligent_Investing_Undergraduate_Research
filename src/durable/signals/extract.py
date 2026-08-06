@@ -23,7 +23,6 @@ from datetime import date
 from enum import Enum
 from typing import Any
 
-
 PROMPT_VERSION = "v1.0"
 TEMPERATURE = 0
 AUDIT_SAMPLE_RATE = 0.10
@@ -148,13 +147,15 @@ def validate_extraction_response(response: dict) -> list[ExtractedValue]:
     for field_enum in ExtractionField:
         field_data = fields_data.get(field_enum.value)
         if field_data is None:
-            results.append(ExtractedValue(
-                field=field_enum,
-                value=None,
-                citation=None,
-                section=None,
-                confidence="low",
-            ))
+            results.append(
+                ExtractedValue(
+                    field=field_enum,
+                    value=None,
+                    citation=None,
+                    section=None,
+                    confidence="low",
+                )
+            )
             continue
 
         confidence = field_data.get("confidence", "low")
@@ -186,17 +187,17 @@ def check_contamination(
     """Check if extraction might be contaminated.
 
     Raises ContaminationError unless allow_contaminated=True.
-    Returns True if contaminated (filing is AFTER model training cutoff).
+    Returns True if contaminated (filing is before model training cutoff).
 
-    A filing dated after the model's training cutoff means the model was trained
+    A filing dated before the model's training cutoff means the model was trained
     on data from that period - it has "read the future" relative to a backtest
     using that filing.
     """
-    is_contaminated = filing_date > model_training_cutoff
+    is_contaminated = filing_date < model_training_cutoff
 
     if is_contaminated and not allow_contaminated:
         raise ContaminationError(
-            f"Filing date {filing_date} is AFTER model training cutoff "
+            f"Filing date {filing_date} is before model training cutoff "
             f"{model_training_cutoff}. The model was trained on this period - "
             f"using this extraction in a backtest is contaminated. "
             f"Pass allow_contaminated=True to proceed (results will be tagged CONTAMINATED)."
@@ -253,14 +254,16 @@ def extract_filing(
     scored_values = []
     for v in values:
         s = score_extraction(v)
-        scored_values.append(ExtractedValue(
-            field=v.field,
-            value=v.value,
-            citation=v.citation,
-            section=v.section,
-            confidence=v.confidence,
-            score=s,
-        ))
+        scored_values.append(
+            ExtractedValue(
+                field=v.field,
+                value=v.value,
+                citation=v.citation,
+                section=v.section,
+                confidence=v.confidence,
+                score=s,
+            )
+        )
 
     result = ExtractionResult(
         ticker=ticker,

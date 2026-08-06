@@ -4,14 +4,9 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from durable.discovery.manipulation import (
-    ManipulationFlag,
-    ManipulationResult,
     check_distance_to_default,
     check_litigation_enforcement,
-    check_paid_promotion,
     check_promotional_8k,
     check_short_interest,
     check_social_velocity,
@@ -20,7 +15,6 @@ from durable.discovery.manipulation import (
     check_volume_price_spike,
     run_manipulation_screen,
 )
-
 
 AS_OF = date(2025, 6, 15)
 
@@ -40,7 +34,8 @@ class TestAnyHitMeansNotClean:
 
     def test_multiple_flags_all_reported(self):
         result = run_manipulation_screen(
-            "AWFUL", AS_OF,
+            "AWFUL",
+            AS_OF,
             has_sec_action=True,
             detected_paid_promotion=True,
             si_pct_float=0.15,
@@ -125,14 +120,16 @@ class TestPerfectFundamentalsStillExcluded:
     def test_great_company_with_promotion_excluded(self):
         """Even if every other check passes, one triggered flag => not clean."""
         result = run_manipulation_screen(
-            "PERFECT", AS_OF,
+            "PERFECT",
+            AS_OF,
             detected_paid_promotion=True,
         )
         assert result.is_clean is False
 
     def test_great_company_with_unsolicited_source(self):
         result = run_manipulation_screen(
-            "PERFECT", AS_OF,
+            "PERFECT",
+            AS_OF,
             from_unsolicited=True,
         )
         assert result.is_clean is False

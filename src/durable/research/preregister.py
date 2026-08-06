@@ -125,9 +125,7 @@ def verify_reproduction(
             f"Config hash mismatch: {original.config_hash} vs {reproduced.config_hash}"
         )
     if original.seed != reproduced.seed:
-        raise ReproducibilityError(
-            f"Seed mismatch: {original.seed} vs {reproduced.seed}"
-        )
+        raise ReproducibilityError(f"Seed mismatch: {original.seed} vs {reproduced.seed}")
 
 
 EXPERIMENT_LOG_COLUMNS = [

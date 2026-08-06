@@ -65,9 +65,7 @@ def assert_safe_to_trade(
     """
     # 1. KILL file — exits before auth
     if Path(kill_file).exists():
-        raise KillSwitchError(
-            "KILL file detected. Remove it manually to resume trading."
-        )
+        raise KillSwitchError("KILL file detected. Remove it manually to resume trading.")
 
     # 2. RECONCILE_FAILED — mismatch blocks submit
     if Path(reconcile_failed_file).exists():
@@ -120,8 +118,7 @@ def submit_limit_order(
     # Sells must specify lot_ids
     if side == "sell" and not lot_ids:
         raise MissingLotIdsError(
-            f"Sell order for {symbol} has no lot_ids. "
-            "Never let the broker default to FIFO."
+            f"Sell order for {symbol} has no lot_ids. Never let the broker default to FIFO."
         )
 
     # Notional limit check

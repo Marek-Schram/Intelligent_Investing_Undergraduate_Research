@@ -20,7 +20,6 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-
 NO_TRADE_BAND = 0.03
 TURNOVER_CEILING = 0.60
 BUFFER_RANK = 80
@@ -112,9 +111,7 @@ def apply_no_trade_band(
         current = current_w.get(ticker, 0.0)
         drift = abs(target - current)
 
-        if ticker in name_changes or ticker in constraint_breaches:
-            trade_w[ticker] = target
-        elif drift > no_trade_band:
+        if ticker in name_changes or ticker in constraint_breaches or drift > no_trade_band:
             trade_w[ticker] = target
         else:
             trade_w[ticker] = current
@@ -171,7 +168,10 @@ def construct_portfolio(
             "Reducing to name changes and constraint breaches only."
         )
         minimal_trade_w = apply_no_trade_band(
-            tw, current_weights, name_changes, constraint_breaches,
+            tw,
+            current_weights,
+            name_changes,
+            constraint_breaches,
             no_trade_band=999.0,
         )
         for ticker in name_changes + constraint_breaches:
@@ -181,9 +181,7 @@ def construct_portfolio(
 
     trades_required = post_trade_w.reindex(
         current_weights.index.union(post_trade_w.index), fill_value=0.0
-    ) - current_weights.reindex(
-        current_weights.index.union(post_trade_w.index), fill_value=0.0
-    )
+    ) - current_weights.reindex(current_weights.index.union(post_trade_w.index), fill_value=0.0)
     trades_required = trades_required[trades_required.abs() > 1e-8]
 
     return ConstructionResult(

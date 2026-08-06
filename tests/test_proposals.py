@@ -5,10 +5,8 @@ from __future__ import annotations
 from datetime import date
 
 import pandas as pd
-import pytest
 
 from durable.execution.propose import (
-    ProposedTrade,
     RebalanceProposal,
     SellRule,
     _check_sell_rules,
@@ -137,35 +135,43 @@ class TestSellRules:
 class TestWashSale:
     def test_wash_sale_blocks_repurchase(self):
         """Wash-sale blocks a loss-repurchase — acceptance criterion."""
-        recent_sales = pd.DataFrame([
-            {"ticker": "AAPL", "sale_date": "2024-06-15", "realized_gain": -500.0},
-        ])
+        recent_sales = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "sale_date": "2024-06-15", "realized_gain": -500.0},
+            ]
+        )
         # 10 days after sale — within 30-day window
         blocked = _is_wash_sale_blocked("AAPL", recent_sales, date(2024, 6, 25))
         assert blocked is True
 
     def test_wash_sale_not_blocked_outside_window(self):
         """Outside 61-day window is fine."""
-        recent_sales = pd.DataFrame([
-            {"ticker": "AAPL", "sale_date": "2024-03-01", "realized_gain": -500.0},
-        ])
+        recent_sales = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "sale_date": "2024-03-01", "realized_gain": -500.0},
+            ]
+        )
         # 120 days later — well outside window
         blocked = _is_wash_sale_blocked("AAPL", recent_sales, date(2024, 7, 1))
         assert blocked is False
 
     def test_wash_sale_gain_not_blocked(self):
         """Gain sales don't create wash-sale risk."""
-        recent_sales = pd.DataFrame([
-            {"ticker": "MSFT", "sale_date": "2024-06-15", "realized_gain": 1000.0},
-        ])
+        recent_sales = pd.DataFrame(
+            [
+                {"ticker": "MSFT", "sale_date": "2024-06-15", "realized_gain": 1000.0},
+            ]
+        )
         blocked = _is_wash_sale_blocked("MSFT", recent_sales, date(2024, 6, 25))
         assert blocked is False
 
     def test_wash_sale_wrong_ticker(self):
         """Wash sale only applies to the same ticker."""
-        recent_sales = pd.DataFrame([
-            {"ticker": "AAPL", "sale_date": "2024-06-15", "realized_gain": -500.0},
-        ])
+        recent_sales = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "sale_date": "2024-06-15", "realized_gain": -500.0},
+            ]
+        )
         blocked = _is_wash_sale_blocked("MSFT", recent_sales, date(2024, 6, 25))
         assert blocked is False
 
@@ -173,15 +179,30 @@ class TestWashSale:
 class TestGenerateProposal:
     def test_blank_mistake_line(self):
         """Proposal has a blank 'mistake' line — acceptance criterion."""
-        scores = _make_scores([
-            {"ticker": "AAPL", "composite_score": 85, "rank": 1,
-             "is_excluded": False, "implied_growth": 0.05,
-             "sector": "Tech", "has_corporate_action": False},
-        ])
-        holdings = _make_holdings([
-            {"ticker": "AAPL", "shares": 100, "weight": 0.05,
-             "sector": "Tech", "lot_ids": ["lot-1"]},
-        ])
+        scores = _make_scores(
+            [
+                {
+                    "ticker": "AAPL",
+                    "composite_score": 85,
+                    "rank": 1,
+                    "is_excluded": False,
+                    "implied_growth": 0.05,
+                    "sector": "Tech",
+                    "has_corporate_action": False,
+                },
+            ]
+        )
+        holdings = _make_holdings(
+            [
+                {
+                    "ticker": "AAPL",
+                    "shares": 100,
+                    "weight": 0.05,
+                    "sector": "Tech",
+                    "lot_ids": ["lot-1"],
+                },
+            ]
+        )
         proposal = generate_proposal(
             scores=scores,
             current_holdings=holdings,
@@ -195,15 +216,30 @@ class TestGenerateProposal:
 
     def test_sell_cites_rule(self):
         """Every sell in the proposal cites its S1-S5 rule."""
-        scores = _make_scores([
-            {"ticker": "WEAK", "composite_score": 20, "rank": 85,
-             "is_excluded": False, "implied_growth": 0.05,
-             "sector": "Tech", "has_corporate_action": False},
-        ])
-        holdings = _make_holdings([
-            {"ticker": "WEAK", "shares": 50, "weight": 0.04,
-             "sector": "Tech", "lot_ids": ["lot-2"]},
-        ])
+        scores = _make_scores(
+            [
+                {
+                    "ticker": "WEAK",
+                    "composite_score": 20,
+                    "rank": 85,
+                    "is_excluded": False,
+                    "implied_growth": 0.05,
+                    "sector": "Tech",
+                    "has_corporate_action": False,
+                },
+            ]
+        )
+        holdings = _make_holdings(
+            [
+                {
+                    "ticker": "WEAK",
+                    "shares": 50,
+                    "weight": 0.04,
+                    "sector": "Tech",
+                    "lot_ids": ["lot-2"],
+                },
+            ]
+        )
         prev_ranks = pd.DataFrame([{"ticker": "WEAK", "rank": 90}])
 
         proposal = generate_proposal(
@@ -221,17 +257,33 @@ class TestGenerateProposal:
 
     def test_wash_sale_blocks_buy(self):
         """Wash-sale blocked tickers appear in wash_sale_blocks, not in trades."""
-        scores = _make_scores([
-            {"ticker": "AAPL", "composite_score": 90, "rank": 1,
-             "is_excluded": False, "implied_growth": 0.05,
-             "sector": "Tech", "has_corporate_action": False},
-            {"ticker": "MSFT", "composite_score": 85, "rank": 2,
-             "is_excluded": False, "implied_growth": 0.04,
-             "sector": "Tech", "has_corporate_action": False},
-        ])
-        recent_sales = pd.DataFrame([
-            {"ticker": "AAPL", "sale_date": "2024-08-01", "realized_gain": -200.0},
-        ])
+        scores = _make_scores(
+            [
+                {
+                    "ticker": "AAPL",
+                    "composite_score": 90,
+                    "rank": 1,
+                    "is_excluded": False,
+                    "implied_growth": 0.05,
+                    "sector": "Tech",
+                    "has_corporate_action": False,
+                },
+                {
+                    "ticker": "MSFT",
+                    "composite_score": 85,
+                    "rank": 2,
+                    "is_excluded": False,
+                    "implied_growth": 0.04,
+                    "sector": "Tech",
+                    "has_corporate_action": False,
+                },
+            ]
+        )
+        recent_sales = pd.DataFrame(
+            [
+                {"ticker": "AAPL", "sale_date": "2024-08-01", "realized_gain": -200.0},
+            ]
+        )
 
         proposal = generate_proposal(
             scores=scores,
@@ -250,15 +302,30 @@ class TestGenerateProposal:
 
     def test_holds_retained_in_buffer(self):
         """Holdings within buffer rank are retained."""
-        scores = _make_scores([
-            {"ticker": "HOLD", "composite_score": 50, "rank": 60,
-             "is_excluded": False, "implied_growth": 0.08,
-             "sector": "Tech", "has_corporate_action": False},
-        ])
-        holdings = _make_holdings([
-            {"ticker": "HOLD", "shares": 100, "weight": 0.05,
-             "sector": "Tech", "lot_ids": ["lot-3"]},
-        ])
+        scores = _make_scores(
+            [
+                {
+                    "ticker": "HOLD",
+                    "composite_score": 50,
+                    "rank": 60,
+                    "is_excluded": False,
+                    "implied_growth": 0.08,
+                    "sector": "Tech",
+                    "has_corporate_action": False,
+                },
+            ]
+        )
+        holdings = _make_holdings(
+            [
+                {
+                    "ticker": "HOLD",
+                    "shares": 100,
+                    "weight": 0.05,
+                    "sector": "Tech",
+                    "lot_ids": ["lot-3"],
+                },
+            ]
+        )
         prev_ranks = pd.DataFrame([{"ticker": "HOLD", "rank": 55}])
 
         proposal = generate_proposal(

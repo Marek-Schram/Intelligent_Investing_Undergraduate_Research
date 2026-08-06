@@ -47,9 +47,7 @@ class TestResolveFieldName:
     def test_revenue_concepts(self):
         assert _resolve_field_name("us-gaap:Revenues") == "revenue"
         assert (
-            _resolve_field_name(
-                "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"
-            )
+            _resolve_field_name("us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax")
             == "revenue"
         )
 
@@ -101,9 +99,7 @@ class TestDeduplicateFacts:
 class TestFetchFundamentals:
     """Integration tests hitting SEC EDGAR. Requires network."""
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("edgar"), reason="edgartools not installed"
-    )
+    @pytest.mark.skipif(not pytest.importorskip("edgar"), reason="edgartools not installed")
     def test_aapl_has_40_plus_quarters(self):
         """AAPL yields >= 40 quarters with no nulls — ticket acceptance criterion."""
         import os
@@ -123,18 +119,14 @@ class TestFetchFundamentals:
         # Revenue should have >= 40 quarters
         revenue = df[df["field"] == "revenue"]
         unique_periods = revenue["period_end"].nunique()
-        assert unique_periods >= 40, (
-            f"AAPL revenue has {unique_periods} periods, need >= 40"
-        )
+        assert unique_periods >= 40, f"AAPL revenue has {unique_periods} periods, need >= 40"
 
         # No null values in core fields
         assert df["value"].notna().all()
         assert df["available_at"].notna().all()
         assert df["filed_at"].notna().all()
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("edgar"), reason="edgartools not installed"
-    )
+    @pytest.mark.skipif(not pytest.importorskip("edgar"), reason="edgartools not installed")
     def test_available_at_after_filing_date(self):
         """available_at is filing_date + 1 trading day (always after)."""
         import os
@@ -149,9 +141,7 @@ class TestFetchFundamentals:
         df = fetch_fundamentals("AAPL", identity)
         assert (df["available_at"] > df["filed_at"]).all()
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("edgar"), reason="edgartools not installed"
-    )
+    @pytest.mark.skipif(not pytest.importorskip("edgar"), reason="edgartools not installed")
     def test_restatements_flagged_originals_retained(self):
         """Restatements are flagged; originals retained."""
         import os
@@ -170,9 +160,7 @@ class TestFetchFundamentals:
 
 
 class TestIngestFundamentals:
-    @pytest.mark.skipif(
-        not pytest.importorskip("edgar"), reason="edgartools not installed"
-    )
+    @pytest.mark.skipif(not pytest.importorskip("edgar"), reason="edgartools not installed")
     def test_ingest_writes_to_store(self, conn):
         import os
 
@@ -187,9 +175,7 @@ class TestIngestFundamentals:
         assert sid == "test-aapl"
         assert row_count(conn, "facts_fundamentals") > 0
 
-    @pytest.mark.skipif(
-        not pytest.importorskip("edgar"), reason="edgartools not installed"
-    )
+    @pytest.mark.skipif(not pytest.importorskip("edgar"), reason="edgartools not installed")
     def test_as_of_filters_future(self, conn):
         """Data ingested for AAPL is filterable by as_of date."""
         import os
@@ -211,9 +197,7 @@ class TestIngestFundamentals:
 
 
 class TestGetQuarterlyField:
-    @pytest.mark.skipif(
-        not pytest.importorskip("edgar"), reason="edgartools not installed"
-    )
+    @pytest.mark.skipif(not pytest.importorskip("edgar"), reason="edgartools not installed")
     def test_returns_sorted_by_period(self, conn):
         import os
 

@@ -48,9 +48,7 @@ def insider_overlay(
         return 0
 
     # Only code 'P' counts
-    purchases = df[
-        (df["transaction_code"] == "P") & (df["is_officer_director"])
-    ]
+    purchases = df[(df["transaction_code"] == "P") & (df["is_officer_director"])]
 
     # Check for simultaneous 10b5-1 plans
     has_10b5_1 = df["is_10b5_1"].any() if "is_10b5_1" in df.columns else False
@@ -100,9 +98,7 @@ def political_overlay(
     # 90-day lookback
     lookback_start = as_of - timedelta(days=90)
     df = df[
-        (df["filed_at"] >= lookback_start)
-        & (df["filed_at"] <= as_of)
-        & (df["ticker"] == ticker)
+        (df["filed_at"] >= lookback_start) & (df["filed_at"] <= as_of) & (df["ticker"] == ticker)
     ]
 
     if df.empty:

@@ -5,7 +5,8 @@ INPUT=$(cat)
 FILE=$(printf '%s' "$INPUT" | grep -oE '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"\(.*\)"$/\1/')
 case "$FILE" in
   *.py)
-    command -v ruff >/dev/null 2>&1 && { ruff format "$FILE" >/dev/null 2>&1; ruff check --fix "$FILE" >/dev/null 2>&1; }
+    cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || true
+    command -v uv >/dev/null 2>&1 && { uv run ruff format "$FILE" >/dev/null 2>&1; uv run ruff check --fix "$FILE" >/dev/null 2>&1; }
     ;;
 esac
 exit 0

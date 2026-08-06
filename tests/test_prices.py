@@ -200,14 +200,20 @@ class TestFetchBarsIntegration:
         df = fetch_daily_bars(client, "AAPL", date(2024, 1, 2), date(2024, 1, 10))
         assert len(df) >= 5
         assert set(df.columns) == {
-            "ticker", "dt", "open", "high", "low", "close", "volume", "available_at"
+            "ticker",
+            "dt",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "available_at",
         }
         assert (df["volume"] > 0).all()
 
     def test_ingest_to_store(self, client, conn):
         sid = ingest_daily_bars(
-            conn, client, "AAPL", date(2024, 1, 2), date(2024, 1, 10),
-            snapshot_id="test-bars-aapl"
+            conn, client, "AAPL", date(2024, 1, 2), date(2024, 1, 10), snapshot_id="test-bars-aapl"
         )
         assert sid == "test-bars-aapl"
         result = as_of(conn, "bars_daily", date(2024, 1, 15), tickers="AAPL")

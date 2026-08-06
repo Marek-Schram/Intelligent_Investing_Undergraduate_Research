@@ -88,9 +88,7 @@ def _check_outperformed_without_ci(text: str) -> list[str]:
         end = min(len(text), match.end() + 100)
         window = text[start:end]
         if not ci_patterns.search(window):
-            violations.append(
-                "'outperformed' used without confidence interval context"
-            )
+            violations.append("'outperformed' used without confidence interval context")
             break  # One violation is enough
     return violations
 
@@ -273,8 +271,7 @@ def generate_narrative(
     top_sector = attribution["top_sector"]
     top_effect = attribution["top_sector_effect"]
     sentences.append(
-        f"The primary Brinson driver was {top_sector} "
-        f"(selection effect {top_effect:+.2%})."
+        f"The primary Brinson driver was {top_sector} (selection effect {top_effect:+.2%})."
     )
 
     # 3. Since-inception excess with CI
@@ -327,8 +324,6 @@ def generate_narrative(
     # Validate — RAISE if violations found
     violations = validate_narrative(narrative)
     if violations:
-        raise NarrativeValidationError(
-            f"Generated narrative failed validation: {violations}"
-        )
+        raise NarrativeValidationError(f"Generated narrative failed validation: {violations}")
 
     return narrative

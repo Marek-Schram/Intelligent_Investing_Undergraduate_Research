@@ -9,13 +9,12 @@ import pytest
 from durable.signals.extract import (
     AUDIT_SAMPLE_RATE,
     EXTRACTION_SCHEMA,
-    PROMPT_VERSION,
     TEMPERATURE,
     CacheKey,
     ContaminationError,
+    ExtractedValue,
     ExtractionField,
     ExtractionResult,
-    ExtractedValue,
     check_contamination,
     extract_filing,
     make_cache_key,
@@ -88,9 +87,14 @@ class TestUncitedClaimsScoreZero:
             ExtractedValue(ExtractionField.ROIC, 0.12, None, None, "high"),
         ]
         result = ExtractionResult(
-            ticker="TEST", accession="acc", available_at=date(2025, 1, 1),
-            model_version="v1", prompt_version="v1.0", temperature=0,
-            values=values, cache_key=CacheKey("acc", "v1.0", "v1"),
+            ticker="TEST",
+            accession="acc",
+            available_at=date(2025, 1, 1),
+            model_version="v1",
+            prompt_version="v1.0",
+            temperature=0,
+            values=values,
+            cache_key=CacheKey("acc", "v1.0", "v1"),
         )
         assert len(result.cited_values) == 1
         assert len(result.uncited_values) == 1
@@ -114,16 +118,28 @@ class TestCaching:
             return {"ticker": "X", "accession": "acc", "fields": {}}
 
         extract_filing(
-            "TEST", "acc", "text", date(2025, 6, 1),
-            "claude-3.5", date(2024, 1, 1),
-            llm_callable=mock_llm, allow_contaminated=True, cache=cache,
+            "TEST",
+            "acc",
+            "text",
+            date(2025, 6, 1),
+            "claude-3.5",
+            date(2024, 1, 1),
+            llm_callable=mock_llm,
+            allow_contaminated=True,
+            cache=cache,
         )
         assert call_count[0] == 1
 
         extract_filing(
-            "TEST", "acc", "text", date(2025, 6, 1),
-            "claude-3.5", date(2024, 1, 1),
-            llm_callable=mock_llm, allow_contaminated=True, cache=cache,
+            "TEST",
+            "acc",
+            "text",
+            date(2025, 6, 1),
+            "claude-3.5",
+            date(2024, 1, 1),
+            llm_callable=mock_llm,
+            allow_contaminated=True,
+            cache=cache,
         )
         assert call_count[0] == 1  # Cache hit, no second call
 
@@ -139,8 +155,12 @@ class TestAvailableAtFromFiling:
     def test_available_at_is_filing_date(self):
         filing_date = date(2025, 3, 15)
         result = extract_filing(
-            "TEST", "acc", "text", filing_date,
-            "claude-3.5", date(2024, 1, 1),
+            "TEST",
+            "acc",
+            "text",
+            filing_date,
+            "claude-3.5",
+            date(2024, 1, 1),
             allow_contaminated=True,
         )
         assert result.available_at == filing_date
@@ -154,8 +174,12 @@ class TestTemperatureZero:
 
     def test_result_records_temperature(self):
         result = extract_filing(
-            "TEST", "acc", "text", date(2025, 6, 1),
-            "claude-3.5", date(2024, 1, 1),
+            "TEST",
+            "acc",
+            "text",
+            date(2025, 6, 1),
+            "claude-3.5",
+            date(2024, 1, 1),
             allow_contaminated=True,
         )
         assert result.temperature == 0
@@ -224,15 +248,23 @@ class TestContaminationGuard:
     def test_extract_filing_raises_on_contamination(self):
         with pytest.raises(ContaminationError):
             extract_filing(
-                "TEST", "acc", "text", date(2023, 1, 1),
-                "claude-3.5", date(2024, 1, 1),
+                "TEST",
+                "acc",
+                "text",
+                date(2023, 1, 1),
+                "claude-3.5",
+                date(2024, 1, 1),
                 allow_contaminated=False,
             )
 
     def test_contaminated_result_tagged(self):
         result = extract_filing(
-            "TEST", "acc", "text", date(2023, 1, 1),
-            "claude-3.5", date(2024, 1, 1),
+            "TEST",
+            "acc",
+            "text",
+            date(2023, 1, 1),
+            "claude-3.5",
+            date(2024, 1, 1),
             allow_contaminated=True,
         )
         assert result.contaminated is True
@@ -247,9 +279,14 @@ class TestAuditSample:
     def test_selects_10_percent(self):
         extractions = [
             ExtractionResult(
-                ticker=f"T{i}", accession=f"acc{i}", available_at=date(2025, 1, 1),
-                model_version="v1", prompt_version="v1.0", temperature=0,
-                values=[], cache_key=CacheKey(f"acc{i}", "v1.0", "v1"),
+                ticker=f"T{i}",
+                accession=f"acc{i}",
+                available_at=date(2025, 1, 1),
+                model_version="v1",
+                prompt_version="v1.0",
+                temperature=0,
+                values=[],
+                cache_key=CacheKey(f"acc{i}", "v1.0", "v1"),
             )
             for i in range(100)
         ]
@@ -259,9 +296,14 @@ class TestAuditSample:
     def test_deterministic_with_seed(self):
         extractions = [
             ExtractionResult(
-                ticker=f"T{i}", accession=f"acc{i}", available_at=date(2025, 1, 1),
-                model_version="v1", prompt_version="v1.0", temperature=0,
-                values=[], cache_key=CacheKey(f"acc{i}", "v1.0", "v1"),
+                ticker=f"T{i}",
+                accession=f"acc{i}",
+                available_at=date(2025, 1, 1),
+                model_version="v1",
+                prompt_version="v1.0",
+                temperature=0,
+                values=[],
+                cache_key=CacheKey(f"acc{i}", "v1.0", "v1"),
             )
             for i in range(50)
         ]
@@ -272,9 +314,14 @@ class TestAuditSample:
     def test_minimum_one_sample(self):
         extractions = [
             ExtractionResult(
-                ticker="ONLY", accession="acc", available_at=date(2025, 1, 1),
-                model_version="v1", prompt_version="v1.0", temperature=0,
-                values=[], cache_key=CacheKey("acc", "v1.0", "v1"),
+                ticker="ONLY",
+                accession="acc",
+                available_at=date(2025, 1, 1),
+                model_version="v1",
+                prompt_version="v1.0",
+                temperature=0,
+                values=[],
+                cache_key=CacheKey("acc", "v1.0", "v1"),
             )
         ]
         sample = select_audit_sample(extractions)

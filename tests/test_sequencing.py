@@ -102,23 +102,31 @@ class TestAssertInvariants:
 
     def test_negative_cash_after_buys_raises(self):
         plan = SequencedPlan(
-            sells=[], buys=[], scale_applied=Decimal("1"),
+            sells=[],
+            buys=[],
+            scale_applied=Decimal("1"),
             cash_before=Decimal("100"),
             cash_after_sells=Decimal("100"),
             cash_after_buys=Decimal("-1"),
-            shortfall=False, notes=[],
+            shortfall=False,
+            notes=[],
         )
         with pytest.raises(InvariantViolation):
             assert_invariants(plan)
 
     def test_sell_without_lot_ids_raises(self):
-        bad_sell = Order("BAD", "sell", Decimal("100"), Decimal("50"), lot_ids=None, reason="rebalance")
+        bad_sell = Order(
+            "BAD", "sell", Decimal("100"), Decimal("50"), lot_ids=None, reason="rebalance"
+        )
         plan = SequencedPlan(
-            sells=[bad_sell], buys=[], scale_applied=Decimal("1"),
+            sells=[bad_sell],
+            buys=[],
+            scale_applied=Decimal("1"),
             cash_before=Decimal("100"),
             cash_after_sells=Decimal("200"),
             cash_after_buys=Decimal("200"),
-            shortfall=False, notes=[],
+            shortfall=False,
+            notes=[],
         )
         with pytest.raises(InvariantViolation, match="lot_ids"):
             assert_invariants(plan)
@@ -126,11 +134,14 @@ class TestAssertInvariants:
     def test_valid_plan_passes(self):
         sell = Order("MSFT", "sell", Decimal("100"), Decimal("50"), lot_ids=["lot1"], reason="S1")
         plan = SequencedPlan(
-            sells=[sell], buys=[], scale_applied=Decimal("1"),
+            sells=[sell],
+            buys=[],
+            scale_applied=Decimal("1"),
             cash_before=Decimal("100"),
             cash_after_sells=Decimal("200"),
             cash_after_buys=Decimal("200"),
-            shortfall=False, notes=[],
+            shortfall=False,
+            notes=[],
         )
         assert_invariants(plan)
 
@@ -160,9 +171,14 @@ class TestNoCashNegativeRegression:
     def test_cash_buffer_not_needed(self):
         """Sequencing eliminates negative cash by construction — no buffer needed."""
         orders = [
-            _sell("S1", 2000), _sell("S2", 1500), _sell("S3", 1000),
-            _buy("B1", 3000), _buy("B2", 2000), _buy("B3", 1500),
-            _buy("B4", 1000), _buy("B5", 500),
+            _sell("S1", 2000),
+            _sell("S2", 1500),
+            _sell("S3", 1000),
+            _buy("B1", 3000),
+            _buy("B2", 2000),
+            _buy("B3", 1500),
+            _buy("B4", 1000),
+            _buy("B5", 500),
         ]
         plan = sequence(orders, Decimal("100"))
         assert plan.cash_after_buys >= 0

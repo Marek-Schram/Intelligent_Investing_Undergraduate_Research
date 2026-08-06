@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 import pandas as pd
 import pytest
@@ -23,16 +23,18 @@ def test_future_filing_does_not_change_past_scores():
     store.init_schema(conn)
 
     # Create initial fixture data available before June 30
-    initial_data = pd.DataFrame({
-        "ticker": ["AAPL"],
-        "field": ["revenue"],
-        "period_end": [date(2018, 3, 31)],
-        "value": [50000.0],
-        "filed_at": pd.Timestamp("2018-05-15 16:00:00"),
-        "available_at": pd.Timestamp("2018-05-16 09:30:00"),  # Available before June 30
-        "accession": ["0001234-18-000001"],
-        "restated": [False],
-    })
+    initial_data = pd.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "field": ["revenue"],
+            "period_end": [date(2018, 3, 31)],
+            "value": [50000.0],
+            "filed_at": pd.Timestamp("2018-05-15 16:00:00"),
+            "available_at": pd.Timestamp("2018-05-16 09:30:00"),  # Available before June 30
+            "accession": ["0001234-18-000001"],
+            "restated": [False],
+        }
+    )
 
     store.write_snapshot(conn, "facts_fundamentals", initial_data, "test_fixture_initial")
 
@@ -45,16 +47,18 @@ def test_future_filing_does_not_change_past_scores():
     assert initial_revenue == 50000.0
 
     # NOW: Insert corrupt data dated AFTER June 30 (should not affect earlier scores)
-    future_data = pd.DataFrame({
-        "ticker": ["AAPL"],
-        "field": ["revenue"],
-        "period_end": [date(2018, 6, 30)],
-        "value": [1e15],  # Absurdly high - obvious corruption
-        "filed_at": pd.Timestamp("2018-08-15 16:00:00"),
-        "available_at": pd.Timestamp("2018-09-30 09:30:00"),  # AFTER our as_of date
-        "accession": ["0001234-18-000002"],
-        "restated": [False],
-    })
+    future_data = pd.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "field": ["revenue"],
+            "period_end": [date(2018, 6, 30)],
+            "value": [1e15],  # Absurdly high - obvious corruption
+            "filed_at": pd.Timestamp("2018-08-15 16:00:00"),
+            "available_at": pd.Timestamp("2018-09-30 09:30:00"),  # AFTER our as_of date
+            "accession": ["0001234-18-000002"],
+            "restated": [False],
+        }
+    )
 
     store.write_snapshot(conn, "facts_fundamentals", future_data, "test_fixture_corrupt")
 
@@ -79,20 +83,22 @@ def test_available_at_boundary_excludes_future():
     as_of_ts = pd.Timestamp("2024-06-15 16:00:00")
 
     # Create test data with precise timing
-    test_data = pd.DataFrame({
-        "ticker": ["AAPL", "MSFT", "GOOGL"],
-        "field": ["revenue"] * 3,
-        "period_end": [date(2024, 3, 31)] * 3,
-        "value": [100.0, 200.0, 300.0],
-        "filed_at": [pd.Timestamp("2024-06-01")] * 3,
-        "available_at": [
-            pd.Timestamp("2024-06-15 15:59:59"),  # 1 second BEFORE - should be included
-            pd.Timestamp("2024-06-15 16:00:00"),  # EXACTLY at boundary - should be included
-            pd.Timestamp("2024-06-15 16:00:01"),  # 1 second AFTER - should be excluded
-        ],
-        "accession": ["acc1", "acc2", "acc3"],
-        "restated": [False] * 3,
-    })
+    test_data = pd.DataFrame(
+        {
+            "ticker": ["AAPL", "MSFT", "GOOGL"],
+            "field": ["revenue"] * 3,
+            "period_end": [date(2024, 3, 31)] * 3,
+            "value": [100.0, 200.0, 300.0],
+            "filed_at": [pd.Timestamp("2024-06-01")] * 3,
+            "available_at": [
+                pd.Timestamp("2024-06-15 15:59:59"),  # 1 second BEFORE - should be included
+                pd.Timestamp("2024-06-15 16:00:00"),  # EXACTLY at boundary - should be included
+                pd.Timestamp("2024-06-15 16:00:01"),  # 1 second AFTER - should be excluded
+            ],
+            "accession": ["acc1", "acc2", "acc3"],
+            "restated": [False] * 3,
+        }
+    )
 
     store.write_snapshot(conn, "facts_fundamentals", test_data, "test_boundary")
 
@@ -117,40 +123,42 @@ def test_no_restated_values_used():
     as_of = pd.Timestamp("2024-06-30")
 
     # Original filing
-    original = pd.DataFrame({
-        "ticker": ["AAPL"],
-        "field": ["revenue"],
-        "period_end": [date(2024, 3, 31)],
-        "value": [50000.0],  # Original value
-        "filed_at": pd.Timestamp("2024-05-15 16:00:00"),
-        "available_at": pd.Timestamp("2024-05-16 09:30:00"),
-        "accession": ["0001234-24-000001"],
-        "restated": [False],  # Original
-    })
+    original = pd.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "field": ["revenue"],
+            "period_end": [date(2024, 3, 31)],
+            "value": [50000.0],  # Original value
+            "filed_at": pd.Timestamp("2024-05-15 16:00:00"),
+            "available_at": pd.Timestamp("2024-05-16 09:30:00"),
+            "accession": ["0001234-24-000001"],
+            "restated": [False],  # Original
+        }
+    )
 
     # Restatement filed later (correcting an "error")
-    restatement = pd.DataFrame({
-        "ticker": ["AAPL"],
-        "field": ["revenue"],
-        "period_end": [date(2024, 3, 31)],  # Same period
-        "value": [52000.0],  # Restated value (higher)
-        "filed_at": pd.Timestamp("2024-06-10 16:00:00"),  # Later filing
-        "available_at": pd.Timestamp("2024-06-11 09:30:00"),
-        "accession": ["0001234-24-000001/A"],  # Amendment
-        "restated": [True],  # This is a restatement
-    })
+    restatement = pd.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "field": ["revenue"],
+            "period_end": [date(2024, 3, 31)],  # Same period
+            "value": [52000.0],  # Restated value (higher)
+            "filed_at": pd.Timestamp("2024-06-10 16:00:00"),  # Later filing
+            "available_at": pd.Timestamp("2024-06-11 09:30:00"),
+            "accession": ["0001234-24-000001/A"],  # Amendment
+            "restated": [True],  # This is a restatement
+        }
+    )
 
     # Write both
-    write_snapshot(conn, "facts_fundamentals", original, "test_original")
-    write_snapshot(conn, "facts_fundamentals", restatement, "test_restatement")
+    store.write_snapshot(conn, "facts_fundamentals", original, "test_original")
+    store.write_snapshot(conn, "facts_fundamentals", restatement, "test_restatement")
 
     # Query as of June 30 (after both are available)
-    result = store.as_of(conn, "facts_fundamentals", as_of_ts)
+    result = store.as_of(conn, "facts_fundamentals", as_of)
 
     # Filter for AAPL revenue
-    aapl_revenue = result[
-        (result["ticker"] == "AAPL") & (result["field"] == "revenue")
-    ]
+    aapl_revenue = result[(result["ticker"] == "AAPL") & (result["field"] == "revenue")]
 
     # Should return ONLY the original, not the restatement
     assert len(aapl_revenue) == 1, f"Expected 1 row, got {len(aapl_revenue)}"
@@ -169,20 +177,26 @@ def test_13f_uses_filed_at_not_period_end():
     as_of = pd.Timestamp("2024-04-15")  # Mid-April
 
     # 13F data - period_end is Q1 end, but not filed until 45 days later
-    data_13f = pd.DataFrame({
-        "ticker": ["AAPL"],
-        "manager": ["Berkshire Hathaway"],
-        "shares": [1000000],
-        "period_end": pd.Timestamp("2024-03-31"),  # Q1 end
-        "filed_at": pd.Timestamp("2024-05-15"),  # Filed 45 days after quarter end
-        "available_at": pd.Timestamp("2024-05-16"),  # Available day after filing
-        "form_type": ["13F-HR"],
-    })
+    data_13f = pd.DataFrame(
+        {
+            "manager_cik": [1067983],
+            "manager_name": ["Berkshire Hathaway"],
+            "ticker": ["AAPL"],
+            "cusip": ["037833100"],
+            "shares": [1000000],
+            "value": [150000000.0],
+            "period_end": [date(2024, 3, 31)],  # Q1 end
+            "filed_at": pd.Timestamp("2024-05-15"),  # Filed 45 days after quarter end
+            "available_at": pd.Timestamp("2024-05-16"),  # Available day after filing
+            "pct_of_portfolio": [0.05],
+            "change_type": ["new"],
+        }
+    )
 
-    write_snapshot(conn, "institutional_holdings", data_13f, "test_13f")
+    store.write_snapshot(conn, "institutional_holdings", data_13f, "test_13f")
 
     # Query as of April 15 (BEFORE the 13F was filed)
-    result = as_of(conn, "institutional_holdings", as_of)
+    result = store.as_of(conn, "institutional_holdings", as_of)
 
     # Should be EMPTY - the 13F wasn't filed yet, even though the period ended
     assert len(result) == 0, (
@@ -193,7 +207,7 @@ def test_13f_uses_filed_at_not_period_end():
 
     # Query as of May 20 (AFTER the 13F was filed)
     as_of_after = pd.Timestamp("2024-05-20")
-    result_after = as_of(conn, "institutional_holdings", as_of_after)
+    result_after = store.as_of(conn, "institutional_holdings", as_of_after)
 
     # NOW it should be visible
     assert len(result_after) == 1, "13F should be visible after filing date"
@@ -208,20 +222,23 @@ def test_short_interest_uses_publication_date():
     as_of = pd.Timestamp("2024-06-15")
 
     # Short interest data with settlement vs publication lag
-    short_data = pd.DataFrame({
-        "ticker": ["AAPL"],
-        "settlement_date": [date(2024, 5, 31)],  # Settlement date (event date)
-        "publication_date": pd.Timestamp("2024-06-14"),  # Published ~11 business days later
-        "available_at": pd.Timestamp("2024-06-14 09:30:00"),  # Available at publication
-        "short_interest": [5000000],
-        "days_to_cover": [2.5],
-    })
+    short_data = pd.DataFrame(
+        {
+            "ticker": ["AAPL"],
+            "settlement_date": [date(2024, 5, 31)],  # Settlement date (event date)
+            "publication_date": [date(2024, 6, 14)],  # Published ~11 business days later
+            "available_at": pd.Timestamp("2024-06-14 09:30:00"),  # Available at publication
+            "shares_short": [5000000],
+            "pct_float": [0.05],
+            "days_to_cover": [2.5],
+        }
+    )
 
-    write_snapshot(conn, "short_interest", short_data, "test_short")
+    store.write_snapshot(conn, "short_interest", short_data, "test_short")
 
     # Query as of June 10 (BEFORE publication, but after settlement)
     as_of_before = pd.Timestamp("2024-06-10")
-    result_before = as_of(conn, "short_interest", as_of_before)
+    result_before = store.as_of(conn, "short_interest", as_of_before)
 
     # Should be EMPTY - not published yet, even though settlement happened
     assert len(result_before) == 0, (
@@ -231,52 +248,51 @@ def test_short_interest_uses_publication_date():
     )
 
     # Query as of June 15 (AFTER publication)
-    result_after = as_of(conn, "short_interest", as_of)
+    result_after = store.as_of(conn, "short_interest", as_of)
 
     # NOW it should be visible
     assert len(result_after) == 1, "Short interest should be visible after publication"
     assert result_after.iloc[0]["ticker"] == "AAPL"
-    assert result_after.iloc[0]["short_interest"] == 5000000
+    assert result_after.iloc[0]["shares_short"] == 5000000
 
 
 def test_llm_extraction_contamination_guard():
     """Using an extraction before the model's training cutoff must raise unless
     explicitly allowed — the model has read the future (docs/13 §1)."""
-    from durable.signals.extract import check_contamination, ContaminationError
+    from durable.signals.extract import ContaminationError, check_contamination
 
     # Claude's training cutoff (example - adjust to actual)
     model_cutoff = pd.Timestamp("2025-05-01")
 
-    # Test 1: Extraction from BEFORE cutoff - should be fine
+    # Test 1: Filing from BEFORE cutoff - model was trained on this period, contaminated
     filing_date_before = pd.Timestamp("2024-01-15")
 
-    # Should not raise (extraction is from before model training)
-    try:
+    with pytest.raises(ContaminationError) as exc_info:
         check_contamination(
             filing_date=filing_date_before,
             model_training_cutoff=model_cutoff,
             allow_contaminated=False,
         )
-    except Exception as e:
-        pytest.fail(f"check_contamination incorrectly raised for pre-cutoff data: {e}")
 
-    # Test 2: Extraction from AFTER cutoff - should raise
+    error_msg = str(exc_info.value).lower()
+    assert "contamination" in error_msg or "cutoff" in error_msg or "before" in error_msg
+
+    # Test 2: Filing from AFTER cutoff - model has not seen this period, clean
     filing_date_after = pd.Timestamp("2025-08-15")
 
-    with pytest.raises(ContaminationError) as exc_info:
+    try:
         check_contamination(
             filing_date=filing_date_after,
             model_training_cutoff=model_cutoff,
             allow_contaminated=False,
         )
-
-    error_msg = str(exc_info.value).lower()
-    assert "contamination" in error_msg or "cutoff" in error_msg or "after" in error_msg
+    except Exception as e:
+        pytest.fail(f"check_contamination incorrectly raised for post-cutoff data: {e}")
 
     # Test 3: Contaminated but explicitly allowed - should pass
     try:
         check_contamination(
-            filing_date=filing_date_after,
+            filing_date=filing_date_before,
             model_training_cutoff=model_cutoff,
             allow_contaminated=True,  # Explicit override
         )

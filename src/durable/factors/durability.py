@@ -18,6 +18,7 @@ def piotroski_f_score(facts: pd.DataFrame) -> int:
 
     Nine binary signals of financial strength.
     """
+
     def _get(field: str, offset: int = 0) -> float | None:
         series = facts[facts["field"] == field].sort_values("period_end")
         if len(series) <= offset:
@@ -172,7 +173,7 @@ def cash_and_safety_points(facts: pd.DataFrame) -> float:
             capex = capex_series.iloc[i]["value"] if i < len(capex_series) else 0
             fcf_values.append(cfo - abs(capex))
 
-        ni_values = ni_series["value"].tolist()[:len(fcf_values)]
+        ni_values = ni_series["value"].tolist()[: len(fcf_values)]
         ratios = []
         for fcf, ni in zip(fcf_values, ni_values):
             if ni != 0:
@@ -256,7 +257,11 @@ def growth_durability_points(facts: pd.DataFrame, sector_gm_rank: float | None =
     if len(shares_series) >= 2:
         first = shares_series.iloc[0]["value"]
         last = shares_series.iloc[-1]["value"]
-        years = max((shares_series.iloc[-1]["period_end"] - shares_series.iloc[0]["period_end"]).days / 365.25, 1)
+        years = max(
+            (shares_series.iloc[-1]["period_end"] - shares_series.iloc[0]["period_end"]).days
+            / 365.25,
+            1,
+        )
         annual_change = (last / first) ** (1 / years) - 1
 
         if annual_change < -0.005:
@@ -298,8 +303,16 @@ def red_flags(
     ar_series = facts[facts["field"] == "accounts_receivable"].sort_values("period_end")
     rev_series = facts[facts["field"] == "revenue"].sort_values("period_end")
     if len(ar_series) >= 3 and len(rev_series) >= 3:
-        ar_growth = (ar_series.iloc[-1]["value"] / ar_series.iloc[-3]["value"]) - 1 if ar_series.iloc[-3]["value"] > 0 else 0
-        rev_growth = (rev_series.iloc[-1]["value"] / rev_series.iloc[-3]["value"]) - 1 if rev_series.iloc[-3]["value"] > 0 else 0
+        ar_growth = (
+            (ar_series.iloc[-1]["value"] / ar_series.iloc[-3]["value"]) - 1
+            if ar_series.iloc[-3]["value"] > 0
+            else 0
+        )
+        rev_growth = (
+            (rev_series.iloc[-1]["value"] / rev_series.iloc[-3]["value"]) - 1
+            if rev_series.iloc[-3]["value"] > 0
+            else 0
+        )
         if rev_growth > 0 and ar_growth > 1.5 * rev_growth:
             penalty -= 4
             flags.append("receivables_blowout")
@@ -307,7 +320,11 @@ def red_flags(
     # Inventory blowout
     inv_series = facts[facts["field"] == "inventory"].sort_values("period_end")
     if len(inv_series) >= 3 and len(rev_series) >= 3:
-        inv_growth = (inv_series.iloc[-1]["value"] / inv_series.iloc[-3]["value"]) - 1 if inv_series.iloc[-3]["value"] > 0 else 0
+        inv_growth = (
+            (inv_series.iloc[-1]["value"] / inv_series.iloc[-3]["value"]) - 1
+            if inv_series.iloc[-3]["value"] > 0
+            else 0
+        )
         if rev_growth > 0 and inv_growth > 1.5 * rev_growth:
             penalty -= 3
             flags.append("inventory_blowout")

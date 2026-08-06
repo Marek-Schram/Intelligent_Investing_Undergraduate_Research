@@ -64,8 +64,16 @@ class TestGenerateMemo:
             total_return=0.09,
             benchmark_return=0.10,
             sells=[
-                SellEntry(ticker="WEAK", sell_rule="S1: rank out of top 80 at two consecutive", rationale="Deteriorating quality"),
-                SellEntry(ticker="FRAUD", sell_rule="S2: exclusion-level flag", rationale="Accounting irregularity"),
+                SellEntry(
+                    ticker="WEAK",
+                    sell_rule="S1: rank out of top 80 at two consecutive",
+                    rationale="Deteriorating quality",
+                ),
+                SellEntry(
+                    ticker="FRAUD",
+                    sell_rule="S2: exclusion-level flag",
+                    rationale="Accounting irregularity",
+                ),
             ],
             buys=[],
             bear_cases=[],

@@ -17,8 +17,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr, pearsonr
-
+from scipy.stats import pearsonr, spearmanr
 
 HORIZONS_QUARTERS = (1, 2, 4, 8)
 N_QUANTILES = 5
@@ -64,8 +63,12 @@ def ic_summary(ic_series: pd.Series) -> dict:
     n = len(ic_series)
     if n == 0:
         return {
-            "mean_ic": 0.0, "std_ic": 0.0, "ir": 0.0,
-            "t_stat": 0.0, "hit_rate": 0.0, "n_periods": 0,
+            "mean_ic": 0.0,
+            "std_ic": 0.0,
+            "ir": 0.0,
+            "t_stat": 0.0,
+            "hit_rate": 0.0,
+            "n_periods": 0,
             "suspected_lookahead": False,
         }
 
@@ -101,12 +104,14 @@ def ic_decay(
             continue
         ic_s = rank_ic(factor, forward_returns_by_horizon[h])
         summary = ic_summary(ic_s)
-        rows.append({
-            "horizon": h,
-            "mean_ic": summary["mean_ic"],
-            "ir": summary["ir"],
-            "t_stat": summary["t_stat"],
-        })
+        rows.append(
+            {
+                "horizon": h,
+                "mean_ic": summary["mean_ic"],
+                "ir": summary["ir"],
+                "t_stat": summary["t_stat"],
+            }
+        )
     return pd.DataFrame(rows).set_index("horizon")
 
 
@@ -140,13 +145,17 @@ def quantile_returns(
         rets = quantile_rets[q]
         if rets:
             arr = np.array(rets)
-            rows.append({
-                "quantile": q,
-                "mean_return": float(arr.mean()),
-                "std": float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
-                "n_obs": len(arr),
-                "t_stat": float(arr.mean() / (arr.std(ddof=1) / np.sqrt(len(arr)))) if len(arr) > 1 and arr.std(ddof=1) > 0 else 0.0,
-            })
+            rows.append(
+                {
+                    "quantile": q,
+                    "mean_return": float(arr.mean()),
+                    "std": float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
+                    "n_obs": len(arr),
+                    "t_stat": float(arr.mean() / (arr.std(ddof=1) / np.sqrt(len(arr))))
+                    if len(arr) > 1 and arr.std(ddof=1) > 0
+                    else 0.0,
+                }
+            )
         else:
             rows.append({"quantile": q, "mean_return": 0.0, "std": 0.0, "n_obs": 0, "t_stat": 0.0})
 

@@ -101,9 +101,7 @@ def momentum_12_1_score(
         return 0.0
 
     if sector_returns and len(sector_returns) > 1:
-        percentile = sum(1 for x in sector_returns if x < return_12_1) / len(
-            sector_returns
-        )
+        percentile = sum(1 for x in sector_returns if x < return_12_1) / len(sector_returns)
         return percentile * 10.0
 
     # Absolute fallback: [-30%, +60%] range

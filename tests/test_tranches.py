@@ -2,21 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
 
 from durable.discovery.tranche import (
-    BROKER_FRACTIONAL_MINIMUM,
-    CANCEL_SCORE_THRESHOLD,
     DOSSIER_SECTIONS,
     Dossier,
     ExitFacts,
-    ExitResult,
     ExitRule,
-    SizeResult,
     TrancheFacts,
-    TrancheGateResult,
     TrancheState,
     exit_rules,
     next_tranche_gate,

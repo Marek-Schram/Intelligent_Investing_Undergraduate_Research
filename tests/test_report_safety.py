@@ -41,8 +41,8 @@ def test_tax_and_research_never_import_execution():
     for mod in execution_modules:
         del sys.modules[mod]
 
-    import durable.tax.lots  # noqa: F401
     import durable.tax.harvest  # noqa: F401
+    import durable.tax.lots  # noqa: F401
 
     tax_violates = any("durable.execution" in m for m in sys.modules)
     assert not tax_violates, "durable.tax imports execution (safety violation)"
@@ -52,8 +52,8 @@ def test_tax_and_research_never_import_execution():
     for mod in execution_modules:
         del sys.modules[mod]
 
-    import durable.research.journal  # noqa: F401
     import durable.research.calibration  # noqa: F401
+    import durable.research.journal  # noqa: F401
 
     research_violates = any("durable.execution" in m for m in sys.modules)
     assert not research_violates, "durable.research imports execution (safety violation)"
@@ -62,6 +62,7 @@ def test_tax_and_research_never_import_execution():
 def test_no_network_during_report_generation():
     """Monkeypatch socket to raise; a full report must still generate."""
     import socket
+
     import numpy as np
 
     original_socket = socket.socket
@@ -96,6 +97,7 @@ def test_no_network_during_report_generation():
 def test_report_is_deterministic():
     """Same snapshot in, byte-identical JSON sidecar out, twice."""
     import numpy as np
+
     from durable.reporting.performance import compute_risk_metrics
 
     # Create a deterministic fixture - simple returns series
@@ -148,8 +150,7 @@ def test_report_raises_on_noncompliant_narrative():
         # The narrative might fail for different reasons (missing CI, unqualified alpha, etc.)
         # Just verify that some violation is detected
         assert len(violations) > 0, (
-            f"validate_narrative should detect violations for phrase: {phrase}. "
-            f"Got: {violations}"
+            f"validate_narrative should detect violations for phrase: {phrase}. Got: {violations}"
         )
 
     # Valid narrative with CI and negative contributor should pass
@@ -169,9 +170,9 @@ def test_report_raises_on_noncompliant_narrative():
 def test_deflated_sharpe_raises_without_experiment_log():
     """Missing or empty experiment_log.csv must raise, never default n_trials to 1 —
     defaulting silently inflates every result in the research project."""
-    from durable.reporting.inference import require_experiment_log, deflated_sharpe_ratio
     import tempfile
-    from pathlib import Path
+
+    from durable.reporting.inference import deflated_sharpe_ratio, require_experiment_log
 
     # Create a temp directory for test
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -183,7 +184,12 @@ def test_deflated_sharpe_raises_without_experiment_log():
             require_experiment_log(str(experiment_log))
 
         error_msg = str(exc_info.value).lower()
-        assert "experiment" in error_msg or "log" in error_msg or "not found" in error_msg or "missing" in error_msg
+        assert (
+            "experiment" in error_msg
+            or "log" in error_msg
+            or "not found" in error_msg
+            or "missing" in error_msg
+        )
 
         # Test 2: File with only header should return 0 or raise
         experiment_log.write_text("date,experiment,description\n")  # Header only
@@ -196,7 +202,9 @@ def test_deflated_sharpe_raises_without_experiment_log():
         except Exception as e:
             # If it raises, that's also acceptable
             error_msg = str(e).lower()
-            assert "empty" in error_msg or "no experiments" in error_msg or "no trials" in error_msg
+            assert (
+                "empty" in error_msg or "no experiments" in error_msg or "no trials" in error_msg
+            )
 
         # Test 3: Valid log with experiments should work
         experiment_log.write_text(

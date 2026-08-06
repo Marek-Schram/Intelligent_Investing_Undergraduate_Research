@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from durable.backtest.ablations import (
     ALL_VARIANTS,
@@ -80,9 +79,7 @@ class TestTStat:
         """The result explicitly states whether |t| > 2 — acceptance criterion."""
         returns = np.array([0.01] * 60)
         benchmark = np.array([0.005] * 60)
-        result = run_ablation(
-            AblationVariant.FULL, returns, benchmark
-        )
+        result = run_ablation(AblationVariant.FULL, returns, benchmark)
         assert isinstance(result.significant, bool)
         assert result.significant == (abs(result.t_stat) > 2.0)
 
@@ -95,9 +92,7 @@ class TestRunAllAblations:
         np.random.seed(42)
         T = 60
         benchmark = np.random.normal(0.008, 0.04, T)
-        variant_returns = {
-            v: benchmark + np.random.normal(0.002, 0.01, T) for v in ALL_VARIANTS
-        }
+        variant_returns = {v: benchmark + np.random.normal(0.002, 0.01, T) for v in ALL_VARIANTS}
 
         results = run_all_ablations(variant_returns, benchmark)
         assert len(results) == 9
@@ -109,9 +104,7 @@ class TestRunAllAblations:
         np.random.seed(42)
         T = 60
         benchmark = np.random.normal(0.008, 0.04, T)
-        variant_returns = {
-            v: benchmark + np.random.normal(0.002, 0.01, T) for v in ALL_VARIANTS
-        }
+        variant_returns = {v: benchmark + np.random.normal(0.002, 0.01, T) for v in ALL_VARIANTS}
 
         results = run_all_ablations(variant_returns, benchmark)
         for r in results:

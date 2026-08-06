@@ -132,15 +132,17 @@ def deflated_sharpe_ratio(
     # Expected max Sharpe under null (Euler-Mascheroni approximation)
     from scipy.stats import norm
 
-    e_max_sharpe = norm.ppf(1 - 1 / (2 * n_trials)) * (
-        1 - 0.5772 / np.log(n_trials)
-    ) if n_trials > 1 else 0.0
+    e_max_sharpe = (
+        norm.ppf(1 - 1 / (2 * n_trials)) * (1 - 0.5772 / np.log(n_trials)) if n_trials > 1 else 0.0
+    )
 
     # SR* adjustment for non-normality
     sr_adj = sharpe * np.sqrt(1 - skewness * sharpe / 3 + (kurtosis - 3) * sharpe**2 / 4)
 
     # PSR (probabilistic Sharpe ratio)
-    se_sharpe = np.sqrt((1 + 0.5 * sharpe**2 - skewness * sharpe + (kurtosis - 3) / 4 * sharpe**2) / n_periods)
+    se_sharpe = np.sqrt(
+        (1 + 0.5 * sharpe**2 - skewness * sharpe + (kurtosis - 3) / 4 * sharpe**2) / n_periods
+    )
 
     if se_sharpe == 0:
         return 0.0

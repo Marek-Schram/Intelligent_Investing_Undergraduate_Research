@@ -18,12 +18,10 @@ import pytest
 from durable.tax.lots import (
     Lot,
     LotSelection,
-    LotSelectionResult,
     TaxRates,
     WashSaleRisk,
     select_lots,
 )
-
 
 # --- Fixtures ---
 
@@ -64,7 +62,7 @@ def _standard_tax_rates() -> TaxRates:
     return TaxRates(
         short_term_rate=Decimal("0.22"),  # 22% marginal
         long_term_rate=Decimal("0.15"),  # 15% LTCG
-        state_rate=Decimal("0.05"),       # 5% state
+        state_rate=Decimal("0.05"),  # 5% state
     )
 
 

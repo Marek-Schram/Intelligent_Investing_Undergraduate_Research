@@ -117,16 +117,20 @@ def fetch_fama_french(
             end_of_month = end_of_month.date() if hasattr(end_of_month, "date") else end_of_month
 
         # FF data available ~5 days after month end
-        available_at = datetime(end_of_month.year, end_of_month.month, end_of_month.day) + pd.Timedelta(days=5)
+        available_at = datetime(
+            end_of_month.year, end_of_month.month, end_of_month.day
+        ) + pd.Timedelta(days=5)
 
         for col in row.index:
             factor_name = f"FF5_{col.replace(' ', '_').replace('-', '_')}"
-            rows.append({
-                "series_id": factor_name,
-                "dt": end_of_month,
-                "value": float(row[col]),
-                "available_at": available_at,
-            })
+            rows.append(
+                {
+                    "series_id": factor_name,
+                    "dt": end_of_month,
+                    "value": float(row[col]),
+                    "available_at": available_at,
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -151,21 +155,25 @@ def fetch_momentum_factor() -> pd.DataFrame:
             end_of_month = end_of_month.replace(day=1) - pd.Timedelta(days=1)
             end_of_month = end_of_month.date() if hasattr(end_of_month, "date") else end_of_month
 
-        available_at = datetime(end_of_month.year, end_of_month.month, end_of_month.day) + pd.Timedelta(days=5)
+        available_at = datetime(
+            end_of_month.year, end_of_month.month, end_of_month.day
+        ) + pd.Timedelta(days=5)
 
         for col in row.index:
-            rows.append({
-                "series_id": f"FF_MOM_{col.replace(' ', '_')}",
-                "dt": end_of_month,
-                "value": float(row[col]),
-                "available_at": available_at,
-            })
+            rows.append(
+                {
+                    "series_id": f"FF_MOM_{col.replace(' ', '_')}",
+                    "dt": end_of_month,
+                    "value": float(row[col]),
+                    "available_at": available_at,
+                }
+            )
 
     return pd.DataFrame(rows)
 
 
 def ingest_macro(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     api_key: str,
     series_ids: list[str] | None = None,
     snapshot_id: str | None = None,
@@ -182,7 +190,7 @@ def ingest_macro(
 
 
 def ingest_factors(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     snapshot_id: str | None = None,
 ) -> str:
     """Fetch and store Fama-French factors."""
@@ -199,7 +207,7 @@ def ingest_factors(
 
 
 def get_risk_free_rate(
-    conn: "duckdb.DuckDBPyConnection",
+    conn: duckdb.DuckDBPyConnection,
     as_of_date: date,
 ) -> float | None:
     """Get the most recent 10Y Treasury rate as of a date."""

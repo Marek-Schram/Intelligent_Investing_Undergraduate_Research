@@ -71,9 +71,7 @@ def _assert_no_lookahead(
     if "dt" in prices.columns:
         max_dt = pd.to_datetime(prices["dt"]).dt.date.max()
         if max_dt > as_of:
-            raise LookaheadError(
-                f"Future prices detected: max dt={max_dt} > as_of={as_of}"
-            )
+            raise LookaheadError(f"Future prices detected: max dt={max_dt} > as_of={as_of}")
 
 
 def _get_price(prices: pd.DataFrame, ticker: str, dt: date) -> float | None:
@@ -103,9 +101,7 @@ def _apply_delisting(
     remaining = []
     proceeds = 0.0
 
-    delisted_tickers = set(
-        delistings[delistings["delist_date"] <= as_of]["ticker"].tolist()
-    )
+    delisted_tickers = set(delistings[delistings["delist_date"] <= as_of]["ticker"].tolist())
 
     for pos in positions:
         if pos.ticker in delisted_tickers:
@@ -189,10 +185,14 @@ def run_backtest(
                 price = _get_price(prices, pos.ticker, rebal_date)
                 if price is not None:
                     cash += pos.shares * price
-                    trades.append({
-                        "ticker": pos.ticker, "action": "sell",
-                        "shares": pos.shares, "price": price,
-                    })
+                    trades.append(
+                        {
+                            "ticker": pos.ticker,
+                            "action": "sell",
+                            "shares": pos.shares,
+                            "price": price,
+                        }
+                    )
             else:
                 new_positions.append(pos)
 
@@ -217,38 +217,43 @@ def run_backtest(
                 if shares > 0:
                     cash -= cost
                     new_positions.append(
-                        Position(ticker=ticker, shares=shares,
-                                 cost_basis=cost, entry_date=rebal_date)
+                        Position(
+                            ticker=ticker, shares=shares, cost_basis=cost, entry_date=rebal_date
+                        )
                     )
-                    trades.append({
-                        "ticker": ticker, "action": "buy",
-                        "shares": shares, "price": price,
-                    })
+                    trades.append(
+                        {
+                            "ticker": ticker,
+                            "action": "buy",
+                            "shares": shares,
+                            "price": price,
+                        }
+                    )
 
         positions = new_positions
 
         # Assert cash never negative
         if cash < -1e-6:
-            raise CashNegativeError(
-                f"Cash negative at {rebal_date}: {cash:.2f}"
-            )
+            raise CashNegativeError(f"Cash negative at {rebal_date}: {cash:.2f}")
 
         nav_end = _calculate_nav(positions, cash, prices, rebal_date)
         period_return = (nav_end - nav_start) / nav_start if nav_start > 0 else 0.0
 
         if i > 0:
-            periods.append(PeriodResult(
-                period_start=rebalance_dates[i - 1],
-                period_end=rebal_date,
-                nav_start=nav_start,
-                nav_end=nav_end,
-                cash_start=cash,
-                cash_end=cash,
-                positions_start=[],
-                positions_end=list(positions),
-                trades=trades,
-                return_pct=period_return,
-            ))
+            periods.append(
+                PeriodResult(
+                    period_start=rebalance_dates[i - 1],
+                    period_end=rebal_date,
+                    nav_start=nav_start,
+                    nav_end=nav_end,
+                    cash_start=cash,
+                    cash_end=cash,
+                    positions_start=[],
+                    positions_end=list(positions),
+                    trades=trades,
+                    return_pct=period_return,
+                )
+            )
 
         nav_series.append((rebal_date, nav_end))
 

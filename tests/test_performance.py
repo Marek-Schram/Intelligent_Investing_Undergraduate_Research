@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 
 from durable.reporting.performance import (
-    RiskMetrics,
     compute_risk_metrics,
     money_weighted_return,
     time_weighted_return,

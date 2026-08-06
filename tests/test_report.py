@@ -27,7 +27,6 @@ from durable.reporting.report import (
     report_to_json,
 )
 
-
 # --- Fixtures providing minimal valid data for each report type ---
 
 
@@ -135,7 +134,9 @@ _ALL_REPORT_DATA = {
 # --- Test: all 5 report types generate successfully ---
 
 
-@pytest.mark.parametrize("report_type", ["quarterly", "annual", "adhoc", "attribution", "research"])
+@pytest.mark.parametrize(
+    "report_type", ["quarterly", "annual", "adhoc", "attribution", "research"]
+)
 def test_generate_all_five_types(report_type: str) -> None:
     """Each of the five report types produces a valid dict with all required fields."""
     data = _ALL_REPORT_DATA[report_type]()
@@ -180,9 +181,7 @@ def test_import_does_not_transitively_import_execution_via_sys_modules() -> None
     """Secondary check: verify via importlib that the module graph is clean."""
     # Reload in current process and check sys.modules
     # First note which execution modules are already loaded (from other tests)
-    pre_existing = {
-        m for m in sys.modules if m.startswith("durable.execution")
-    }
+    pre_existing = {m for m in sys.modules if m.startswith("durable.execution")}
 
     # Force a fresh import of the module
     mod_name = "durable.reporting.report"
@@ -193,9 +192,7 @@ def test_import_does_not_transitively_import_execution_via_sys_modules() -> None
         importlib.import_module(mod_name)
 
     # Check no new execution modules were introduced by this import
-    post_existing = {
-        m for m in sys.modules if m.startswith("durable.execution")
-    }
+    post_existing = {m for m in sys.modules if m.startswith("durable.execution")}
     new_execution_imports = post_existing - pre_existing
     assert not new_execution_imports, (
         f"durable.reporting.report transitively imported: {new_execution_imports}"
@@ -257,9 +254,7 @@ def test_no_network_imports_in_module() -> None:
 
     forbidden_imports = ["requests", "urllib", "httpx", "aiohttp", "socket"]
     for lib in forbidden_imports:
-        assert f"import {lib}" not in source, (
-            f"report.py imports networking library: {lib}"
-        )
+        assert f"import {lib}" not in source, f"report.py imports networking library: {lib}"
 
 
 def test_no_network_at_generation_time(monkeypatch: pytest.MonkeyPatch) -> None:

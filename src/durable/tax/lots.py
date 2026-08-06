@@ -375,9 +375,7 @@ def _select_tax_optimal(
 
     for lot in lots:
         wsr = wash_sale_risks.get(lot.lot_id)
-        atp = _after_tax_proceeds(
-            lot, lot.shares, current_price, sale_date, tax_rates, wsr
-        )
+        atp = _after_tax_proceeds(lot, lot.shares, current_price, sale_date, tax_rates, wsr)
         atp_per_share = atp / lot.shares
 
         # Build reason explanation
@@ -424,9 +422,8 @@ def _select_tax_optimal(
         if remaining <= Decimal("0"):
             break
         sell_qty = min(s.lot.shares, remaining)
-        reason = (
-            f"TAX_OPTIMAL: lot={s.lot.lot_id}, shares={sell_qty}, "
-            + ", ".join(s.reason_parts)
+        reason = f"TAX_OPTIMAL: lot={s.lot.lot_id}, shares={sell_qty}, " + ", ".join(
+            s.reason_parts
         )
         logger.info(reason)
         results.append(LotSelectionResult(lot=s.lot, shares_to_sell=sell_qty, reason=reason))

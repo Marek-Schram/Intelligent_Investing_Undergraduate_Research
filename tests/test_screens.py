@@ -6,13 +6,8 @@ import pytest
 
 from durable.discovery.screens import (
     ALL_SCREENS,
-    BORING_SIC_GROUPS,
     CIK_PAD_WIDTH,
-    FILING_LANGUAGE_KEYWORDS,
     MAX_REQUESTS_PER_SECOND,
-    ScreenHit,
-    ScreenResult,
-    ScreenType,
     pad_cik,
     run_all_screens,
     screen_boring_industry,
@@ -22,7 +17,6 @@ from durable.discovery.screens import (
     screen_institutional_conviction,
     screen_quiet_compounder,
     screen_spinoff,
-    validate_user_agent,
 )
 
 VALID_UA = "John Doe john@example.com"
@@ -86,42 +80,48 @@ class TestOnlyCodeP:
     """Only code 'P' — acceptance criterion."""
 
     def test_code_p_counted(self):
-        candidates = [{
-            "ticker": "BUY",
-            "analyst_count": 1,
-            "form4_transactions": [
-                {"insider_name": "CEO", "code": "P"},
-                {"insider_name": "CFO", "code": "P"},
-            ],
-        }]
+        candidates = [
+            {
+                "ticker": "BUY",
+                "analyst_count": 1,
+                "form4_transactions": [
+                    {"insider_name": "CEO", "code": "P"},
+                    {"insider_name": "CFO", "code": "P"},
+                ],
+            }
+        ]
         hits = screen_insider_cluster(candidates)
         assert len(hits) == 1
 
     def test_code_a_not_counted(self):
         """Awards (code 'A') are NOT purchases."""
-        candidates = [{
-            "ticker": "AWARD",
-            "analyst_count": 1,
-            "form4_transactions": [
-                {"insider_name": "CEO", "code": "A"},
-                {"insider_name": "CFO", "code": "A"},
-                {"insider_name": "COO", "code": "A"},
-            ],
-        }]
+        candidates = [
+            {
+                "ticker": "AWARD",
+                "analyst_count": 1,
+                "form4_transactions": [
+                    {"insider_name": "CEO", "code": "A"},
+                    {"insider_name": "CFO", "code": "A"},
+                    {"insider_name": "COO", "code": "A"},
+                ],
+            }
+        ]
         hits = screen_insider_cluster(candidates)
         assert len(hits) == 0
 
     def test_mixed_codes_only_p(self):
         """Only code 'P' transactions count toward the cluster."""
-        candidates = [{
-            "ticker": "MIX",
-            "analyst_count": 2,
-            "form4_transactions": [
-                {"insider_name": "CEO", "code": "P"},
-                {"insider_name": "CFO", "code": "A"},
-                {"insider_name": "COO", "code": "S"},
-            ],
-        }]
+        candidates = [
+            {
+                "ticker": "MIX",
+                "analyst_count": 2,
+                "form4_transactions": [
+                    {"insider_name": "CEO", "code": "P"},
+                    {"insider_name": "CFO", "code": "A"},
+                    {"insider_name": "COO", "code": "S"},
+                ],
+            }
+        ]
         hits = screen_insider_cluster(candidates)
         # Only 1 unique insider with code 'P', need >= 2
         assert len(hits) == 0
@@ -131,15 +131,17 @@ class TestMultiScreenHitsNoPoints:
     """Multi-screen hits add NO points — acceptance criterion."""
 
     def test_ticker_in_multiple_screens_counted_once(self):
-        candidates = [{
-            "ticker": "MULTI",
-            "profitable": True,
-            "market_cap": 500e6,
-            "analyst_count": 1,
-            "institutional_pct": 0.20,
-            "sic_code": "5080",
-            "durability_score": 35,
-        }]
+        candidates = [
+            {
+                "ticker": "MULTI",
+                "profitable": True,
+                "market_cap": 500e6,
+                "analyst_count": 1,
+                "institutional_pct": 0.20,
+                "sic_code": "5080",
+                "durability_score": 35,
+            }
+        ]
         result = run_all_screens(candidates, user_agent=VALID_UA)
         # Should appear in both coverage_gap and boring_industry
         ticker_hits = result.hits_by_ticker.get("MULTI", [])
@@ -166,45 +168,53 @@ class TestEmptyResultValid:
 
 class TestCoverageGap:
     def test_qualifies(self):
-        candidates = [{
-            "ticker": "GAP",
-            "profitable": True,
-            "market_cap": 800e6,
-            "analyst_count": 0,
-            "institutional_pct": 0.25,
-        }]
+        candidates = [
+            {
+                "ticker": "GAP",
+                "profitable": True,
+                "market_cap": 800e6,
+                "analyst_count": 0,
+                "institutional_pct": 0.25,
+            }
+        ]
         hits = screen_coverage_gap(candidates)
         assert len(hits) == 1
         assert hits[0].ticker == "GAP"
 
     def test_too_many_analysts(self):
-        candidates = [{
-            "ticker": "COVERED",
-            "profitable": True,
-            "market_cap": 800e6,
-            "analyst_count": 5,
-            "institutional_pct": 0.25,
-        }]
+        candidates = [
+            {
+                "ticker": "COVERED",
+                "profitable": True,
+                "market_cap": 800e6,
+                "analyst_count": 5,
+                "institutional_pct": 0.25,
+            }
+        ]
         hits = screen_coverage_gap(candidates)
         assert len(hits) == 0
 
 
 class TestBoringIndustry:
     def test_qualifies(self):
-        candidates = [{
-            "ticker": "BORE",
-            "sic_code": "4953",
-            "durability_score": 40,
-        }]
+        candidates = [
+            {
+                "ticker": "BORE",
+                "sic_code": "4953",
+                "durability_score": 40,
+            }
+        ]
         hits = screen_boring_industry(candidates)
         assert len(hits) == 1
 
     def test_glamorous_sic_excluded(self):
-        candidates = [{
-            "ticker": "TECH",
-            "sic_code": "7372",
-            "durability_score": 45,
-        }]
+        candidates = [
+            {
+                "ticker": "TECH",
+                "sic_code": "7372",
+                "durability_score": 45,
+            }
+        ]
         hits = screen_boring_industry(candidates)
         assert len(hits) == 0
 
@@ -228,64 +238,76 @@ class TestSpinoff:
 
 class TestFilingLanguage:
     def test_keyword_found(self):
-        candidates = [{
-            "ticker": "LANG",
-            "filing_text": "The company has a long-term supply agreement with major clients.",
-        }]
+        candidates = [
+            {
+                "ticker": "LANG",
+                "filing_text": "The company has a long-term supply agreement with major clients.",
+            }
+        ]
         hits = screen_filing_language(candidates)
         assert len(hits) == 1
         assert "long-term supply agreement" in hits[0].detail
 
     def test_no_keywords(self):
-        candidates = [{
-            "ticker": "PLAIN",
-            "filing_text": "Revenue grew quarter over quarter.",
-        }]
+        candidates = [
+            {
+                "ticker": "PLAIN",
+                "filing_text": "Revenue grew quarter over quarter.",
+            }
+        ]
         hits = screen_filing_language(candidates)
         assert len(hits) == 0
 
 
 class TestQuietCompounder:
     def test_qualifies(self):
-        candidates = [{
-            "ticker": "QUIET",
-            "revenue_cagr_5y": 0.12,
-            "fcf_cagr_5y": 0.10,
-            "shares_growth_5y": -0.02,
-            "roic": 0.15,
-            "analyst_count": 2,
-        }]
+        candidates = [
+            {
+                "ticker": "QUIET",
+                "revenue_cagr_5y": 0.12,
+                "fcf_cagr_5y": 0.10,
+                "shares_growth_5y": -0.02,
+                "roic": 0.15,
+                "analyst_count": 2,
+            }
+        ]
         hits = screen_quiet_compounder(candidates)
         assert len(hits) == 1
 
     def test_shares_growing_excluded(self):
-        candidates = [{
-            "ticker": "DILUTE",
-            "revenue_cagr_5y": 0.12,
-            "fcf_cagr_5y": 0.10,
-            "shares_growth_5y": 0.05,
-            "roic": 0.15,
-            "analyst_count": 2,
-        }]
+        candidates = [
+            {
+                "ticker": "DILUTE",
+                "revenue_cagr_5y": 0.12,
+                "fcf_cagr_5y": 0.10,
+                "shares_growth_5y": 0.05,
+                "roic": 0.15,
+                "analyst_count": 2,
+            }
+        ]
         hits = screen_quiet_compounder(candidates)
         assert len(hits) == 0
 
 
 class TestInstitutionalConviction:
     def test_qualifies(self):
-        candidates = [{
-            "ticker": "CONV",
-            "conviction_managers": ["ManagerA", "ManagerB"],
-            "analyst_count": 2,
-        }]
+        candidates = [
+            {
+                "ticker": "CONV",
+                "conviction_managers": ["ManagerA", "ManagerB"],
+                "analyst_count": 2,
+            }
+        ]
         hits = screen_institutional_conviction(candidates)
         assert len(hits) == 1
 
     def test_too_few_managers(self):
-        candidates = [{
-            "ticker": "FEW",
-            "conviction_managers": ["ManagerA"],
-            "analyst_count": 2,
-        }]
+        candidates = [
+            {
+                "ticker": "FEW",
+                "conviction_managers": ["ManagerA"],
+                "analyst_count": 2,
+            }
+        ]
         hits = screen_institutional_conviction(candidates)
         assert len(hits) == 0

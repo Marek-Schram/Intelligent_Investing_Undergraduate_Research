@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from durable.factors.ic import (
     LOOKAHEAD_IC_THRESHOLD,
@@ -12,7 +11,6 @@ from durable.factors.ic import (
     ic_decay,
     ic_summary,
     is_monotonic,
-    quantile_returns,
     rank_ic,
     sector_neutral_ic,
 )
@@ -24,7 +22,9 @@ def _make_panel(n_dates=20, n_stocks=50, seed=42):
     dates = pd.date_range("2020-01-01", periods=n_dates, freq="QE")
     stocks = [f"S{i:03d}" for i in range(n_stocks)]
     factor = pd.DataFrame(rng.standard_normal((n_dates, n_stocks)), index=dates, columns=stocks)
-    returns = pd.DataFrame(rng.standard_normal((n_dates, n_stocks)) * 0.05, index=dates, columns=stocks)
+    returns = pd.DataFrame(
+        rng.standard_normal((n_dates, n_stocks)) * 0.05, index=dates, columns=stocks
+    )
     return factor, returns
 
 
@@ -51,7 +51,9 @@ class TestSpearmanNotPearson:
         ic_pearson = rank_ic(factor, returns, method="pearson")
 
         # Pearson should be more volatile (dominated by outlier)
-        assert ic_pearson.std() > ic_spearman.std() * 0.5 or abs(ic_pearson.mean()) > abs(ic_spearman.mean())
+        assert ic_pearson.std() > ic_spearman.std() * 0.5 or abs(ic_pearson.mean()) > abs(
+            ic_spearman.mean()
+        )
 
 
 class TestSuspiciousICFlagged:
@@ -151,7 +153,8 @@ class TestFactorAutocorrelation:
         base = np.arange(20, dtype=float)
         factor = pd.DataFrame(
             np.tile(base, (10, 1)) + np.random.default_rng(42).standard_normal((10, 20)) * 0.1,
-            index=dates, columns=stocks,
+            index=dates,
+            columns=stocks,
         )
         ac = factor_autocorrelation(factor)
         assert ac > 0.8

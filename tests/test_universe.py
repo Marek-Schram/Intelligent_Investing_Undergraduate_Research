@@ -9,7 +9,6 @@ import pytest
 
 from durable.data.store import get_conn, init_schema, write_snapshot
 from durable.data.universe import (
-    ExclusionReason,
     _apply_filters,
     build_universe,
     is_financial,
@@ -24,7 +23,9 @@ def conn():
     return c
 
 
-def _add_ticker_data(conn, ticker, price, volume, shares, quarters=10, available_at="2008-06-01T10:00:00"):
+def _add_ticker_data(
+    conn, ticker, price, volume, shares, quarters=10, available_at="2008-06-01T10:00:00"
+):
     """Helper: populate store with minimal data for universe construction."""
     avail = datetime.fromisoformat(available_at)
 
@@ -32,26 +33,30 @@ def _add_ticker_data(conn, ticker, price, volume, shares, quarters=10, available
     fund_rows = []
     for q in range(quarters):
         period = date(2006 + q // 4, 3 * (q % 4 + 1), 28)
-        fund_rows.append({
-            "ticker": ticker,
-            "field": "shares_outstanding",
-            "period_end": period,
-            "value": float(shares),
-            "filed_at": avail,
-            "available_at": avail,
-            "accession": f"acc-{ticker}-{q}",
-            "restated": False,
-        })
-        fund_rows.append({
-            "ticker": ticker,
-            "field": "revenue",
-            "period_end": period,
-            "value": 1_000_000_000.0,
-            "filed_at": avail,
-            "available_at": avail,
-            "accession": f"acc-{ticker}-rev-{q}",
-            "restated": False,
-        })
+        fund_rows.append(
+            {
+                "ticker": ticker,
+                "field": "shares_outstanding",
+                "period_end": period,
+                "value": float(shares),
+                "filed_at": avail,
+                "available_at": avail,
+                "accession": f"acc-{ticker}-{q}",
+                "restated": False,
+            }
+        )
+        fund_rows.append(
+            {
+                "ticker": ticker,
+                "field": "revenue",
+                "period_end": period,
+                "value": 1_000_000_000.0,
+                "filed_at": avail,
+                "available_at": avail,
+                "accession": f"acc-{ticker}-rev-{q}",
+                "restated": False,
+            }
+        )
 
     write_snapshot(conn, "facts_fundamentals", pd.DataFrame(fund_rows), f"fund-{ticker}")
 
@@ -59,16 +64,18 @@ def _add_ticker_data(conn, ticker, price, volume, shares, quarters=10, available
     bar_rows = []
     for i in range(60):
         dt = date(2008, 4, 1 + i % 28) if i < 28 else date(2008, 5, 1 + (i - 28) % 28)
-        bar_rows.append({
-            "ticker": ticker,
-            "dt": dt,
-            "open": price * 0.99,
-            "high": price * 1.01,
-            "low": price * 0.98,
-            "close": price,
-            "volume": int(volume),
-            "available_at": datetime(dt.year, dt.month, dt.day, 16, 0),
-        })
+        bar_rows.append(
+            {
+                "ticker": ticker,
+                "dt": dt,
+                "open": price * 0.99,
+                "high": price * 1.01,
+                "low": price * 0.98,
+                "close": price,
+                "volume": int(volume),
+                "available_at": datetime(dt.year, dt.month, dt.day, 16, 0),
+            }
+        )
 
     write_snapshot(conn, "bars_daily", pd.DataFrame(bar_rows), f"bars-{ticker}")
 
@@ -91,14 +98,16 @@ class TestDelistedCompaniesInUniverse:
 
 class TestUniverseFilters:
     def test_market_cap_filter(self):
-        df = pd.DataFrame({
-            "ticker": ["SMALL", "BIG"],
-            "market_cap": [500_000_000, 5_000_000_000],
-            "adv_60d": [20_000_000, 20_000_000],
-            "price": [10.0, 100.0],
-            "quarters_filed": [10, 10],
-            "sic": [None, None],
-        })
+        df = pd.DataFrame(
+            {
+                "ticker": ["SMALL", "BIG"],
+                "market_cap": [500_000_000, 5_000_000_000],
+                "adv_60d": [20_000_000, 20_000_000],
+                "price": [10.0, 100.0],
+                "quarters_filed": [10, 10],
+                "sic": [None, None],
+            }
+        )
         params = {
             "min_market_cap": 2_000_000_000,
             "min_adv_60d": 10_000_000,
@@ -112,14 +121,16 @@ class TestUniverseFilters:
 
     def test_every_exclusion_has_a_reason(self):
         """Ticket criterion: every exclusion has a reason."""
-        df = pd.DataFrame({
-            "ticker": ["A", "B", "C", "D"],
-            "market_cap": [100, 3e9, 3e9, 3e9],
-            "adv_60d": [1e7, 100, 1e7, 1e7],
-            "price": [10.0, 10.0, 2.0, 10.0],
-            "quarters_filed": [10, 10, 10, 3],
-            "sic": [None, None, None, None],
-        })
+        df = pd.DataFrame(
+            {
+                "ticker": ["A", "B", "C", "D"],
+                "market_cap": [100, 3e9, 3e9, 3e9],
+                "adv_60d": [1e7, 100, 1e7, 1e7],
+                "price": [10.0, 10.0, 2.0, 10.0],
+                "quarters_filed": [10, 10, 10, 3],
+                "sic": [None, None, None, None],
+            }
+        )
         params = {
             "min_market_cap": 2_000_000_000,
             "min_adv_60d": 10_000_000,
@@ -136,14 +147,16 @@ class TestUniverseFilters:
         assert all(e.reason for e in exclusions)
 
     def test_adv_filter(self):
-        df = pd.DataFrame({
-            "ticker": ["THIN"],
-            "market_cap": [5_000_000_000],
-            "adv_60d": [1_000_000],
-            "price": [50.0],
-            "quarters_filed": [12],
-            "sic": [None],
-        })
+        df = pd.DataFrame(
+            {
+                "ticker": ["THIN"],
+                "market_cap": [5_000_000_000],
+                "adv_60d": [1_000_000],
+                "price": [50.0],
+                "quarters_filed": [12],
+                "sic": [None],
+            }
+        )
         params = {
             "min_market_cap": 2_000_000_000,
             "min_adv_60d": 10_000_000,
@@ -177,10 +190,22 @@ class TestBuildUniverse:
         # This is a design-level test — with real data, the 2000 universe
         # should have >= 300 now-dead tickers. For unit testing, we verify
         # the mechanism works: a company present in one period can be absent in another.
-        _add_ticker_data(conn, "ALIVE", price=100.0, volume=50_000_000, shares=1_000_000_000,
-                         available_at="2008-01-01T10:00:00")
-        _add_ticker_data(conn, "DEAD", price=50.0, volume=20_000_000, shares=500_000_000,
-                         available_at="2007-06-01T10:00:00")
+        _add_ticker_data(
+            conn,
+            "ALIVE",
+            price=100.0,
+            volume=50_000_000,
+            shares=1_000_000_000,
+            available_at="2008-01-01T10:00:00",
+        )
+        _add_ticker_data(
+            conn,
+            "DEAD",
+            price=50.0,
+            volume=20_000_000,
+            shares=500_000_000,
+            available_at="2007-06-01T10:00:00",
+        )
 
         # Both visible in mid-2008
         u1, _ = build_universe(conn, date(2008, 6, 1))

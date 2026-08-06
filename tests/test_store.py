@@ -104,8 +104,18 @@ class TestWriteSnapshot:
         assert snaps.iloc[0]["row_count"] == 1
 
     def test_empty_df_raises(self, conn):
-        df = pd.DataFrame(columns=["ticker", "field", "period_end", "value",
-                                    "filed_at", "available_at", "accession", "restated"])
+        df = pd.DataFrame(
+            columns=[
+                "ticker",
+                "field",
+                "period_end",
+                "value",
+                "filed_at",
+                "available_at",
+                "accession",
+                "restated",
+            ]
+        )
         with pytest.raises(ValueError, match="empty"):
             write_snapshot(conn, "facts_fundamentals", df, "snap-empty")
 

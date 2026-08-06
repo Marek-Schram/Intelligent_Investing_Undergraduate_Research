@@ -98,8 +98,11 @@ def compute_risk_metrics(
     """Compute risk metrics for a return series."""
     if len(returns) < 2:
         return RiskMetrics(
-            volatility_ann=0.0, max_drawdown=0.0,
-            var_95=0.0, cvar_95=0.0, beta=None,
+            volatility_ann=0.0,
+            max_drawdown=0.0,
+            var_95=0.0,
+            cvar_95=0.0,
+            beta=None,
         )
 
     vol = float(np.std(returns, ddof=1) * np.sqrt(periods_per_year))
