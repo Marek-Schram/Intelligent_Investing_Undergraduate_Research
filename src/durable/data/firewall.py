@@ -14,13 +14,22 @@ See docs/13 section 2.2.
 
 from __future__ import annotations
 
+import argparse
+import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
+from dotenv import load_dotenv
+
+from durable.config import PROJECT_ROOT, ConfigError, load_config
+from durable.data.store import get_conn, init_schema
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import duckdb
 
 logger = logging.getLogger(__name__)
@@ -297,7 +306,7 @@ def audit(conn: duckdb.DuckDBPyConnection, as_of: pd.Timestamp) -> pd.DataFrame:
         try:
             df = (
                 conn.execute(f"SELECT * FROM {table} WHERE available_at <= ?", [as_of_ts])
-                .fetch_arrow_table()
+                .to_arrow_table()
                 .to_pandas()
             )
         except Exception:
@@ -326,3 +335,117 @@ def audit(conn: duckdb.DuckDBPyConnection, as_of: pd.Timestamp) -> pd.DataFrame:
     if violations:
         return pd.DataFrame(violations)
     return pd.DataFrame(columns=["table_name", "as_of", "n_rows", "detail", "violation_type"])
+
+
+# --------------------------------------------------------------------------------------
+# CLI: `make leakage-audit` / `python -m durable.data.firewall --audit`. Everything above
+# this line is the audit logic (TICKET-042); nothing above was changed to add the CLI.
+# --------------------------------------------------------------------------------------
+
+
+def format_audit_report(violations: pd.DataFrame, as_of: pd.Timestamp) -> str:
+    """Human-readable pass/fail summary for the CLI. Empty `violations` means clean."""
+    if violations.empty:
+        return (
+            f"Firewall audit as of {as_of}: PASS -- no violations across "
+            f"{len(_AUDITABLE_TABLES)} auditable tables."
+        )
+    lines = [f"Firewall audit as of {as_of}: FAIL -- {len(violations)} violation(s):"]
+    for _, row in violations.iterrows():
+        lines.append(
+            f"  [{row['violation_type']}] {row['table_name']}: {row['n_rows']} row(s) -- "
+            f"{row['detail']}"
+        )
+    return "\n".join(lines)
+
+
+def write_audit_report_json(violations: pd.DataFrame, as_of: pd.Timestamp, out_dir: Path) -> Path:
+    """Write the audit result to a timestamped JSON file. Never overwrites a prior report --
+    every run gets its own filename, consistent with the immutable-snapshot convention."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    out_path = out_dir / f"leakage_audit_{timestamp}.json"
+    payload = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "as_of": str(as_of),
+        "pass": bool(violations.empty),
+        "n_violations": int(len(violations)),
+        "violations": violations.to_dict(orient="records"),
+    }
+    out_path.write_text(json.dumps(payload, indent=2, default=str))
+    return out_path
+
+
+def _resolve_db_path(db_path_arg: str | None) -> Path:
+    """--db-path wins outright (mainly for tests/ops); otherwise read config/config.yaml."""
+    if db_path_arg:
+        return Path(db_path_arg)
+    config = load_config()
+    db_path_cfg = config.get("data", {}).get("duckdb_path", "data/durable.duckdb")
+    db_path = Path(db_path_cfg)
+    if not db_path.is_absolute():
+        db_path = PROJECT_ROOT / db_path
+    return db_path
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    load_dotenv()
+
+    parser = argparse.ArgumentParser(
+        description="Sweep the PIT store for look-ahead leaks and lagged-disclosure "
+        "violations. The store's as_of() is the primary guard; this is the independent "
+        "second check that catches paths bypassing it."
+    )
+    parser.add_argument("--audit", action="store_true", help="Run the leakage-audit sweep")
+    parser.add_argument(
+        "--as-of",
+        type=str,
+        default=None,
+        help="ISO datetime/date to audit against (default: now, UTC)",
+    )
+    parser.add_argument(
+        "--db-path",
+        type=str,
+        default=None,
+        help="Override the DuckDB path (default: config/config.yaml data.duckdb_path)",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=str,
+        default=None,
+        help="Override the report output directory (default: data/processed)",
+    )
+    args = parser.parse_args(argv)
+
+    if not args.audit:
+        parser.error("Specify --audit to run the leakage-audit sweep.")
+
+    try:
+        db_path = _resolve_db_path(args.db_path)
+    except ConfigError as exc:
+        print(f"Configuration error: {exc}")
+        return 1
+
+    conn = get_conn(db_path)
+    init_schema(conn)
+
+    if args.as_of:
+        as_of_ts = pd.Timestamp(args.as_of)
+    else:
+        # Naive UTC "now": every available_at value written by the ingestion loaders is a
+        # naive timestamp, so the audit boundary must match that convention exactly.
+        as_of_ts = pd.Timestamp(datetime.now(UTC).replace(tzinfo=None))
+
+    violations = audit(conn, as_of_ts)
+
+    print(format_audit_report(violations, as_of_ts))
+
+    out_dir = Path(args.out_dir) if args.out_dir else PROJECT_ROOT / "data" / "processed"
+    report_path = write_audit_report_json(violations, as_of_ts, out_dir)
+    print(f"Report written to {report_path}")
+
+    return 0 if violations.empty else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

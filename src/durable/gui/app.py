@@ -3,9 +3,10 @@
 Launch with `make gui` (or `streamlit run src/durable/gui/app.py`).
 
 Design rule: this file never re-implements logic. Every action button runs the exact
-same `make <target>` (see runner.run_make) that you'd type at a terminal. If a
-command isn't finished on the command line yet (see IMPLEMENTATION_PROGRESS.md),
-it isn't finished here either — the GUI is a front door, not a rewrite.
+same `make <target>` (see runner.run_make) that you'd type at a terminal — the GUI is a
+front door, not a rewrite. Every command behind every button has a real implementation;
+a command that prints nothing means there's no data to act on yet (run Setup and Update
+Market Data first), not that the feature is unbuilt.
 """
 
 from __future__ import annotations
@@ -44,19 +45,59 @@ SEGMENT_CHOICES = ["design", "validation", "holdout"]
 # --------------------------------------------------------------------------------
 
 
+def _new_output_files_since(start_ts: float) -> list[Path]:
+    """Every file under proposals/, reports/, research/, or data/processed/ whose mtime is at
+    or after `start_ts` — i.e. what a command just wrote, regardless of which folder it used."""
+    found: list[Path] = []
+    for directory in OUTPUT_DIRS.values():
+        if directory.is_dir():
+            found.extend(
+                p for p in directory.rglob("*") if p.is_file() and not p.name.startswith(".")
+            )
+    recent = {p for p in found if p.stat().st_mtime >= start_ts - 1}
+    return sorted(recent, key=lambda p: p.stat().st_mtime, reverse=True)[:10]
+
+
+def _render_run_aftermath(new_files: list[Path], code: int, output: str) -> None:
+    """Show whatever a command actually produced: preview any new files inline, or say plainly
+    that nothing was written if the command claimed success but left no trace."""
+    if new_files:
+        st.markdown(f"**This run wrote {len(new_files)} file(s) — previewed below:**")
+        for p in new_files:
+            with st.expander(f"📄 {p.relative_to(PROJECT_ROOT)}", expanded=len(new_files) == 1):
+                render_file_preview(p)
+    elif code == 0 and not output.strip():
+        st.info(
+            "This command exited successfully but printed nothing and wrote no new file into "
+            "`proposals/`, `reports/`, `research/`, or `data/processed/`. That usually means "
+            "there was nothing to do yet — most commands explain what's missing (data, config, "
+            "a prior step) and exit non-zero instead of going silent, so this is the unusual case."
+        )
+
+
 def run_button(
-    key: str, label: str, run_fn, *, help: str | None = None, primary: bool = True
+    key: str,
+    label: str,
+    run_fn,
+    *,
+    help: str | None = None,
+    primary: bool = True,
+    watch_outputs: bool = True,
 ) -> None:
-    """A button that runs `run_fn()` (which streams output) and remembers the last result
-    so it's still visible after you navigate to another page and back."""
+    """A button that runs `run_fn()` (which streams output), remembers the last result so it's
+    still visible after you navigate to another page and back, and — when `watch_outputs` is
+    set — previews any file the command wrote inline instead of making you go find it."""
     clicked = st.button(
         label, key=f"btn_{key}", type="primary" if primary else "secondary", help=help
     )
     if clicked:
+        start_ts = time.time()
         code, output = run_fn()
-        st.session_state[f"result_{key}"] = (code, output, time.time())
+        new_files = _new_output_files_since(start_ts) if watch_outputs else []
+        st.session_state[f"result_{key}"] = (code, output, time.time(), new_files)
+        _render_run_aftermath(new_files, code, output)
     elif f"result_{key}" in st.session_state:
-        code, output, ts = st.session_state[f"result_{key}"]
+        code, output, ts, new_files = st.session_state[f"result_{key}"]
         st.caption(
             f"Output from the last run, at {time.strftime('%H:%M:%S', time.localtime(ts))}."
         )
@@ -64,6 +105,7 @@ def run_button(
         (st.success if code == 0 else st.error)(
             "Finished successfully (exit code 0)." if code == 0 else f"Exited with code {code}."
         )
+        _render_run_aftermath(new_files, code, output)
 
 
 def as_of_input(key: str) -> str:
@@ -208,10 +250,9 @@ def page_welcome() -> None:
   can, and it requires you to type an explicit confirmation phrase first.
 - **This project starts in paper trading.** Real money is only ever at risk if you've deliberately
   changed `config/config.yaml` yourself — the GUI can't do that for you.
-- **Some steps may print nothing.** This program is under active development (see
-  `IMPLEMENTATION_PROGRESS.md`); a handful of commands are scaffolds waiting on a future ticket.
-  If a step here does nothing, the command-line version does the same thing — you haven't broken
-  anything.
+- **Steps early in the order gate the ones after them.** Score Companies, Discover, Propose,
+  Backtest, and most others need real ingested data first (Update Market Data) — if one refuses
+  to run, it will tell you exactly what's missing and which earlier step provides it.
 - **Every button shows the exact command it's running**, right above the output box, so you can
   learn the command-line equivalents as you go.
 - **Anything a command writes to disk — a proposal, a report, a CSV — can be opened right here.**
@@ -305,7 +346,7 @@ def page_setup() -> None:
     st.divider()
     st.markdown("**Install / update dependencies**")
     st.markdown("Runs `make setup`, which installs everything this program needs to run.")
-    run_button("setup", "Install dependencies", lambda: run_make("setup"))
+    run_button("setup", "Install dependencies", lambda: run_make("setup"), watch_outputs=False)
 
 
 def page_test() -> None:
@@ -317,10 +358,12 @@ def page_test() -> None:
         "correctly on your computer before you trust it with anything else.",
     )
     st.markdown("**Test suite** — runs `make test`. Takes a minute or two.")
-    run_button("test", "Run the test suite", lambda: run_make("test"))
+    run_button("test", "Run the test suite", lambda: run_make("test"), watch_outputs=False)
     st.divider()
     st.markdown("**Code style check** — runs `make lint`. Only useful if you're editing the code.")
-    run_button("lint", "Run the linter", lambda: run_make("lint"), primary=False)
+    run_button(
+        "lint", "Run the linter", lambda: run_make("lint"), primary=False, watch_outputs=False
+    )
 
 
 def page_ingest() -> None:
@@ -332,7 +375,7 @@ def page_ingest() -> None:
         "(`data/durable.duckdb`). Run this before scoring, backtesting, or discovering — stale "
         "data gives stale answers. Requires the API keys from the Setup step.",
     )
-    run_button("ingest", "Update all data", lambda: run_make("ingest"))
+    run_button("ingest", "Update all data", lambda: run_make("ingest"), watch_outputs=False)
 
 
 def page_leakage_audit() -> None:
@@ -344,7 +387,12 @@ def page_leakage_audit() -> None:
         "used before they were actually filed, or price series that have been silently adjusted "
         "for later corporate actions. This is what keeps a backtest honest.",
     )
-    run_button("leakage_audit", "Run the leakage audit", lambda: run_make("leakage-audit"))
+    run_button(
+        "leakage_audit",
+        "Run the leakage audit",
+        lambda: run_make("leakage-audit"),
+        watch_outputs=False,
+    )
 
 
 def page_simulate() -> None:
@@ -356,7 +404,7 @@ def page_simulate() -> None:
         "the core accounting rules hold (no negative cash, the books always reconcile) before you "
         "trust the system with anything real.",
     )
-    run_button("simulate", "Run the simulation", lambda: run_make("simulate"))
+    run_button("simulate", "Run the simulation", lambda: run_make("simulate"), watch_outputs=False)
 
 
 def page_score() -> None:

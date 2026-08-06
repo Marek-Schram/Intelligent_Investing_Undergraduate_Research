@@ -9,6 +9,7 @@ Spec section: docs/02 §3, SPEC §2.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -228,6 +229,70 @@ def ingest_fundamentals(
     write_snapshot(conn, "facts_fundamentals", df, snapshot_id)
     logger.info(f"Ingested {len(df)} facts for {ticker} as {snapshot_id}")
     return snapshot_id
+
+
+@dataclass(frozen=True)
+class FilingDocument:
+    """One fetched filing: full text plus point-in-time metadata.
+
+    Feeds signals/extract.py -- the LLM extraction CLI needs the actual filing document
+    text, which the numeric-facts path above (fetch_fundamentals) never downloads.
+    """
+
+    ticker: str
+    accession: str
+    form: str
+    filing_date: date
+    acceptance_datetime: datetime | None
+    available_at: datetime
+    text: str
+
+
+def _filing_available_at(filing_date: date, acceptance_datetime: datetime | None) -> datetime:
+    """available_at = acceptance_datetime + 1 trading day when EDGAR reports an acceptance
+    timestamp; otherwise filing_date + 1 trading day (the same conservative proxy used by
+    fetch_fundamentals above, for when exact acceptance is unavailable)."""
+    anchor = acceptance_datetime.date() if acceptance_datetime is not None else filing_date
+    return _next_trading_day(anchor)
+
+
+def fetch_latest_filing(
+    ticker: str,
+    identity: str,
+    form_types: tuple[str, ...] = ("10-K", "10-Q"),
+) -> FilingDocument:
+    """Fetch the most recently filed 10-K/10-Q document text for a ticker.
+
+    Data source: SEC EDGAR via edgartools (company filing index + primary document text).
+    available_at logic: see `_filing_available_at` -- acceptance_datetime + 1 trading day,
+        falling back to filing_date + 1 trading day.
+    Spec section: docs/02 §3, docs/10 §1 (feeds signals/extract.py).
+    """
+    set_identity(identity)
+
+    company = Company(ticker)
+    filings = company.get_filings(form=list(form_types))
+    if filings is None or filings.empty:
+        raise ValueError(f"No {'/'.join(form_types)} filings found for {ticker}")
+
+    filing = filings.latest(1)
+
+    acceptance_dt = getattr(filing, "acceptance_datetime", None)
+    available_at = _filing_available_at(filing.filing_date, acceptance_dt)
+
+    text = filing.text()
+    if not text or not text.strip():
+        raise ValueError(f"Filing {filing.accession_number} for {ticker} returned empty text")
+
+    return FilingDocument(
+        ticker=ticker,
+        accession=filing.accession_number,
+        form=filing.form,
+        filing_date=filing.filing_date,
+        acceptance_datetime=acceptance_dt,
+        available_at=available_at,
+        text=text,
+    )
 
 
 def get_quarterly_field(

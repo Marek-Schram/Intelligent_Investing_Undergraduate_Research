@@ -1,5 +1,13 @@
 """Seven discovery screens for Sleeve E. docs/08 section 8. TICKET-027.
 
+CLI (`make discover AS_OF=YYYY-MM-DD` / `python -m durable.discovery.screens --as-of ...`):
+builds candidates from the PIT store (`store.as_of()` via `discovery/pit_data.py`), filters
+them through the Sleeve E universe rule (`discovery/universe.py:screen_candidate`, STRICTER
+than the main portfolio universe — see .claude/rules/speculation-limits.md "Universe — never
+relax"), runs the seven screens below on the survivors, and writes a watchlist CSV to
+`data/processed/discovery/watchlist_<as_of>.csv`. The CLI is itself one of the "systematic
+screens" permitted by speculation-limits.md rule 17 — it adds no other sourcing path.
+
 Screens:
   1. Coverage-gap — profitable, $300M-$3B, 0-2 analysts, institutional < 40%
   2. Boring-industry — high durability in unglamorous SIC groups
@@ -154,7 +162,9 @@ def screen_coverage_gap(
                 ScreenHit(
                     ticker=c["ticker"],
                     screen=ScreenType.COVERAGE_GAP,
-                    detail=f"analysts={c.get('analyst_count')}, inst={c.get('institutional_pct'):.0%}",
+                    detail=(
+                        f"analysts={c.get('analyst_count')}, inst={c.get('institutional_pct'):.0%}"
+                    ),
                 )
             )
     return hits
@@ -315,3 +325,206 @@ def run_all_screens(
         result.screens_run.append(screen_type)
 
     return result
+
+
+# ==============================================================================================
+# CLI — everything above this line is pure (no I/O, network, wall-clock, or config lookups).
+# Everything below does real I/O and is only ever reached via `if __name__ == "__main__"`.
+# ==============================================================================================
+
+import argparse  # noqa: E402
+import csv  # noqa: E402
+import os  # noqa: E402
+import sys  # noqa: E402
+from datetime import date as _date  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+
+def _resolve_user_agent(explicit: str | None, config: dict) -> str:
+    """User-Agent precedence: --user-agent flag > EDGAR_IDENTITY env var > config's
+    data.sec_identity."""
+    if explicit:
+        return explicit
+    env_identity = os.environ.get("EDGAR_IDENTITY")
+    if env_identity:
+        return env_identity
+    return str(config.get("data", {}).get("sec_identity", ""))
+
+
+def _watchlist_rows(candidates: list[dict], result: ScreenResult) -> list[dict]:
+    """One CSV row per unique ticker: which screens hit and why."""
+    by_ticker = result.hits_by_ticker
+    rows = []
+    for c in candidates:
+        ticker = c["ticker"]
+        hits = by_ticker.get(ticker, [])
+        if not hits:
+            continue
+        rows.append(
+            {
+                "ticker": ticker,
+                "n_screens_hit": len(hits),
+                "screens": ";".join(h.screen.value for h in hits),
+                "details": " | ".join(f"{h.screen.value}: {h.detail}" for h in hits),
+            }
+        )
+    rows.sort(key=lambda r: (-r["n_screens_hit"], r["ticker"]))
+    return rows
+
+
+_EXCLUSION_CATEGORY_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("auto_disqualifier:", "auto_disqualifier"),
+    ("exchange", "exchange"),
+    ("missing_price", "price"),
+    ("price_", "price"),
+    ("missing_market_cap", "market_cap"),
+    ("market_cap_", "market_cap"),
+    ("missing_adv", "adv"),
+    ("adv_", "adv"),
+    ("missing_float_data", "float"),
+    ("float_", "float"),
+    ("missing_quarters_filed", "quarters_filed"),
+    ("quarters_filed_", "quarters_filed"),
+    ("missing_ipo_date", "months_since_ipo"),
+    ("months_since_ipo_", "months_since_ipo"),
+    ("missing_profitability_data", "profitability"),
+    ("profitable_years_", "profitability"),
+    ("short_interest_", "short_interest"),
+    ("distance_to_default_", "distance_to_default"),
+)
+
+
+def _categorize_exclusion(reason: str) -> str:
+    """Bucket a formatted exclusion-reason string (which embeds the actual value, e.g.
+    'price_4.99_below_5.0') into a stable category for the CLI's summary counts."""
+    for prefix, category in _EXCLUSION_CATEGORY_PREFIXES:
+        if reason.startswith(prefix):
+            return category
+    return reason
+
+
+def _write_watchlist_csv(path: Path, rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["ticker", "n_screens_hit", "screens", "details"]
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point for `make discover` / `python -m durable.discovery.screens --as-of DATE`."""
+    from durable.config import ConfigError, load_config
+    from durable.data.store import get_conn, init_schema
+    from durable.discovery import pit_data
+    from durable.discovery.universe import screen_candidate
+
+    parser = argparse.ArgumentParser(description="Run the Sleeve E discovery screens.")
+    parser.add_argument("--as-of", required=True, help="Point-in-time date, YYYY-MM-DD.")
+    parser.add_argument("--db", default=None, help="Override the DuckDB path from config.yaml.")
+    parser.add_argument("--user-agent", default=None, help="EDGAR User-Agent override.")
+    parser.add_argument("--out", default=None, help="Override the watchlist CSV output path.")
+    args = parser.parse_args(argv)
+
+    try:
+        as_of_date = _date.fromisoformat(args.as_of)
+    except ValueError:
+        print(f"--as-of must be YYYY-MM-DD, got {args.as_of!r}", file=sys.stderr)
+        return 1
+
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        print(f"Cannot run discover: {exc}", file=sys.stderr)
+        return 1
+
+    from durable.config import PROJECT_ROOT
+
+    db_path = Path(args.db) if args.db else PROJECT_ROOT / config["data"]["duckdb_path"]
+    if not db_path.is_file():
+        print(
+            f"No data store found at {db_path}. Run `make ingest` first "
+            "(this CLI never fabricates data for a missing store).",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        user_agent = _resolve_user_agent(args.user_agent, config)
+    except Exception as exc:  # pragma: no cover - defensive
+        print(f"Could not resolve an EDGAR User-Agent: {exc}", file=sys.stderr)
+        return 1
+
+    conn = get_conn(db_path)
+    init_schema(conn)
+
+    tickers = pit_data.list_tickers_with_fundamentals(conn, as_of_date)
+    if not tickers:
+        print(
+            f"No fundamentals available as of {as_of_date} in {db_path}. "
+            "The store exists but has no data yet — run `make ingest` first.",
+            file=sys.stderr,
+        )
+        return 1
+
+    managers_path = PROJECT_ROOT / config.get("signals", {}).get("institutional", {}).get(
+        "managers_file", "config/managers.yaml"
+    )
+    tracked_managers = pit_data.load_tracked_managers(managers_path)
+
+    eligible_screen_fields: list[dict] = []
+    exclusion_reason_counts: dict[str, int] = {}
+    data_gap_examples: set[str] = set()
+
+    for ticker in tickers:
+        candidate = pit_data.build_candidate(conn, as_of_date, ticker, tracked_managers)
+        data_gap_examples.update(candidate.data_gaps)
+        eligible, exclusions = screen_candidate(ticker=ticker, **candidate.universe_kwargs)
+        if not eligible:
+            for reason in exclusions:
+                key = _categorize_exclusion(reason.reason)
+                exclusion_reason_counts[key] = exclusion_reason_counts.get(key, 0) + 1
+            continue
+        eligible_screen_fields.append(candidate.screen_fields)
+
+    try:
+        result = run_all_screens(eligible_screen_fields, user_agent=user_agent)
+    except ValueError as exc:
+        print(f"Cannot run discover: {exc}", file=sys.stderr)
+        return 1
+
+    rows = _watchlist_rows(eligible_screen_fields, result)
+
+    out_path = (
+        Path(args.out)
+        if args.out
+        else PROJECT_ROOT / "data" / "processed" / "discovery" / f"watchlist_{as_of_date}.csv"
+    )
+    _write_watchlist_csv(out_path, rows)
+
+    print(f"As of {as_of_date}: {len(tickers)} tickers with fundamentals in the store.")
+    print(
+        f"{len(eligible_screen_fields)} passed the Sleeve E universe filter "
+        f"({len(tickers) - len(eligible_screen_fields)} excluded)."
+    )
+    if exclusion_reason_counts:
+        print("Exclusion reasons:")
+        for reason, count in sorted(exclusion_reason_counts.items(), key=lambda kv: -kv[1]):
+            print(f"  {reason}: {count}")
+    print(f"{len(result.unique_tickers)} unique candidates hit at least one screen.")
+    for screen_type in ALL_SCREENS:
+        n = sum(1 for h in result.hits if h.screen == screen_type)
+        print(f"  {screen_type.value}: {n} hits")
+    if data_gap_examples:
+        print(
+            "Data gaps encountered (see discovery/pit_data.py module docstring for the full "
+            "list) — these suppress real candidates until upstream ingestion tickets land:"
+        )
+        for gap in sorted(data_gap_examples):
+            print(f"  - {gap}")
+    print(f"Watchlist written to {out_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

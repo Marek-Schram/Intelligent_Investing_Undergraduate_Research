@@ -391,6 +391,7 @@ class TestRefuseIfWanted:
             ticker_sector="Information Technology",
             wanted_tickers={"AAPL"},  # Screen wants AAPL
             all_transactions=[],
+            sale_date=date(2025, 6, 15),
         )
         assert result is None
 
@@ -415,7 +416,7 @@ class TestReplacementETF:
 
     def test_all_gics_sectors_have_mapping(self):
         """Every GICS sector in the map resolves to a valid ETF ticker."""
-        for sector, etf in GICS_SECTOR_TO_ETF.items():
+        for _sector, etf in GICS_SECTOR_TO_ETF.items():
             assert etf is not None
             assert len(etf) >= 3  # Valid ticker
 
@@ -436,6 +437,7 @@ class TestReplacementETF:
             ticker_sector="Information Technology",
             wanted_tickers=set(),
             all_transactions=[],
+            sale_date=date(2025, 6, 15),
         )
         assert result is not None
         assert result.replacement_etf == "XLK"
@@ -460,6 +462,7 @@ class TestTaxableOnly:
             ticker_sector="Information Technology",
             wanted_tickers=set(),
             all_transactions=[],
+            sale_date=date(2025, 6, 15),
         )
         assert result is None
 
@@ -479,6 +482,7 @@ class TestTaxableOnly:
             ticker_sector="Information Technology",
             wanted_tickers=set(),
             all_transactions=[],
+            sale_date=date(2025, 6, 15),
         )
         assert result is None
 
@@ -498,6 +502,7 @@ class TestTaxableOnly:
             ticker_sector="Information Technology",
             wanted_tickers=set(),
             all_transactions=[],
+            sale_date=date(2025, 6, 15),
         )
         assert result is not None
         assert result.unrealized_loss == Decimal("500.00")
@@ -543,3 +548,100 @@ class TestScanWithLoss:
 
         assert result.is_wash_sale is False
         assert result.disallowed_amount == Decimal("0")
+
+
+class TestHarvestOpportunityNoWallClock:
+    """harvest_opportunity must never read date.today() internally (no-lookahead rule 4).
+
+    The proposed sale date is the caller's responsibility (e.g. a CLI's --as-of flag,
+    defaulting to date.today() only at that boundary) -- never a wall-clock read buried
+    inside pure logic.
+    """
+
+    def test_sale_date_is_a_required_parameter(self):
+        """The function signature must not default sale_date to date.today()."""
+        import inspect
+
+        sig = inspect.signature(harvest_opportunity)
+        assert "sale_date" in sig.parameters
+        assert sig.parameters["sale_date"].default is inspect.Parameter.empty, (
+            "sale_date must have no default -- a default of date.today() (or any "
+            "wall-clock read) inside this function would violate no-lookahead rule 4."
+        )
+
+    def test_wash_sale_window_is_anchored_to_the_passed_sale_date_not_today(self):
+        """A purchase within 61 days of the EXPLICIT sale_date triggers a wash sale, even
+        though that date is nowhere near the real wall-clock 'today'. If the function read
+        date.today() internally instead of using its sale_date argument, this purchase
+        (dated 2020-01-20) would fall far outside a window centered on the real today and
+        no wash sale would be detected -- so this test would fail the moment the
+        date.today() placeholder crept back in."""
+        explicit_sale_date = date(2020, 1, 15)
+        same_account_purchase = Transaction(
+            ticker="AAPL",
+            trade_date=date(2020, 1, 20),  # 5 days after the explicit sale date
+            shares=Decimal("10"),
+            price_per_share=Decimal("150.00"),
+            account_type=AccountType.TAXABLE,
+            account_id="tax-001",
+            is_drip=False,
+        )
+        lot = TaxLot(
+            lot_id="lot-2020-001",
+            ticker="AAPL",
+            shares=Decimal("10"),
+            cost_basis=Decimal("2000.00"),
+            purchase_date=date(2019, 6, 1),
+            account_type=AccountType.TAXABLE,
+            account_id="tax-001",
+        )
+
+        result = harvest_opportunity(
+            lot=lot,
+            current_price=Decimal("150.00"),  # loss of $500
+            ticker_sector="Information Technology",
+            wanted_tickers=set(),
+            all_transactions=[same_account_purchase],
+            sale_date=explicit_sale_date,
+        )
+
+        assert result is not None
+        assert result.wash_sale_risk is not None
+        assert result.wash_sale_risk.is_wash_sale is True
+        assert result.wash_sale_risk.loss_type == LossType.DEFERRED
+
+    def test_no_purchase_near_today_does_not_leak_into_a_past_sale_date(self):
+        """A purchase dated near the real wall-clock 'today' must NOT trigger a wash sale
+        for a harvest proposed years in the past -- proving the window is built from the
+        passed sale_date only."""
+        explicit_sale_date = date(2020, 1, 15)
+        purchase_near_real_today = Transaction(
+            ticker="AAPL",
+            trade_date=date.today(),
+            shares=Decimal("10"),
+            price_per_share=Decimal("150.00"),
+            account_type=AccountType.TAXABLE,
+            account_id="tax-001",
+            is_drip=False,
+        )
+        lot = TaxLot(
+            lot_id="lot-2020-002",
+            ticker="AAPL",
+            shares=Decimal("10"),
+            cost_basis=Decimal("2000.00"),
+            purchase_date=date(2019, 6, 1),
+            account_type=AccountType.TAXABLE,
+            account_id="tax-001",
+        )
+
+        result = harvest_opportunity(
+            lot=lot,
+            current_price=Decimal("150.00"),
+            ticker_sector="Information Technology",
+            wanted_tickers=set(),
+            all_transactions=[purchase_near_real_today],
+            sale_date=explicit_sale_date,
+        )
+
+        assert result is not None
+        assert result.wash_sale_risk is None

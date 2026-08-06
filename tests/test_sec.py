@@ -10,6 +10,7 @@ import pytest
 from durable.data.sec import (
     FUNDAMENTAL_CONCEPTS,
     _deduplicate_facts,
+    _filing_available_at,
     _next_trading_day,
     _resolve_field_name,
     fetch_fundamentals,
@@ -41,6 +42,32 @@ class TestNextTradingDay:
         # Saturday filing -> Monday
         result = _next_trading_day(date(2024, 3, 9))
         assert result.date() == date(2024, 3, 11)
+
+
+class TestFilingAvailableAt:
+    """available_at logic feeding FilingDocument (used by signals/extract.py)."""
+
+    def test_uses_acceptance_datetime_plus_one_trading_day_when_present(self):
+        # Accepted Wednesday 2024-03-06 -> available Thursday 2024-03-07.
+        result = _filing_available_at(
+            filing_date=date(2024, 3, 4),
+            acceptance_datetime=datetime(2024, 3, 6, 16, 30, 0),
+        )
+        assert result == datetime(2024, 3, 7, 9, 30, 0)
+
+    def test_falls_back_to_filing_date_when_no_acceptance_datetime(self):
+        # No acceptance timestamp available -- same conservative proxy as fetch_fundamentals.
+        result = _filing_available_at(filing_date=date(2024, 3, 8), acceptance_datetime=None)
+        assert result == datetime(2024, 3, 11, 9, 30, 0)  # Friday filing -> Monday
+
+    def test_acceptance_datetime_wins_over_filing_date_when_they_differ(self):
+        # Filed Friday, but EDGAR's acceptance timestamp is the following Monday -- the
+        # acceptance date must be the anchor, not the (earlier) filing_date.
+        result = _filing_available_at(
+            filing_date=date(2024, 3, 8),
+            acceptance_datetime=datetime(2024, 3, 11, 8, 0, 0),
+        )
+        assert result == datetime(2024, 3, 12, 9, 30, 0)
 
 
 class TestResolveFieldName:

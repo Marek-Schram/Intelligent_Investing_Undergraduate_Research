@@ -25,6 +25,7 @@ dependencies = [
     "matplotlib>=3.9",
     "pyzotero>=1.5",
     "bibtexparser>=1.4",
+    "anthropic>=0.40",
 ]
 
 [project.optional-dependencies]

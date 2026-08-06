@@ -181,3 +181,50 @@ class TestMakeGroups:
             for i in g:
                 assert i not in seen
                 seen.add(i)
+
+
+class TestCLI:
+    """CLI orchestration: reuses engine.run_segment_backtest for period returns."""
+
+    def test_reports_data_unavailable_cleanly(self, tmp_path, monkeypatch, capsys):
+        """No config/database in a fresh checkout — CLI must print and return 1, not crash.
+        Points PROJECT_ROOT at an empty tmp_path rather than relying on the real repo
+        having no ingested data (it may well have some, e.g. after `make ingest` has
+        actually been run in this environment).
+
+        Patches `run_segment_backtest.__globals__` directly (the exact namespace that
+        function reads PROJECT_ROOT from) rather than `durable.backtest.engine`'s module
+        object: some other test module may have already deleted-and-reimported
+        `durable.backtest.*` from sys.modules by the time this runs (test_report_safety.py
+        does this for durable.execution.*), which would silently split monkeypatch's target
+        from the module the already-imported function object actually reads from.
+        """
+        from durable.backtest.cpcv import _run_cli, run_segment_backtest
+
+        monkeypatch.setitem(run_segment_backtest.__globals__, "PROJECT_ROOT", tmp_path)
+
+        code = _run_cli("validation", n_groups=10, k=3)
+        assert code == 1
+        assert "database" in capsys.readouterr().out.lower()
+
+    def test_too_few_periods_for_n_groups(self, monkeypatch, capsys):
+        """A segment with fewer periods than n_groups must fail loudly, not silently degrade."""
+        from datetime import date
+
+        import durable.backtest.cpcv as cpcv_module
+
+        class _FakePeriod:
+            def __init__(self, return_pct):
+                self.return_pct = return_pct
+
+        class _FakeResult:
+            periods = [_FakePeriod(0.01), _FakePeriod(0.02)]
+
+        monkeypatch.setattr(
+            cpcv_module,
+            "run_segment_backtest",
+            lambda segment: (_FakeResult(), date(2011, 1, 1), date(2018, 12, 31)),
+        )
+        code = cpcv_module._run_cli("validation", n_groups=10, k=3)
+        assert code == 1
+        assert "fewer than n_groups" in capsys.readouterr().out

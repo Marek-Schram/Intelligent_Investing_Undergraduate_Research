@@ -18,15 +18,22 @@ Data source: factor scores, prices from PIT store.
 available_at logic: all data filtered via store.as_of(as_of) upstream.
 Spec section: docs/09.
 
-PURE FUNCTIONS ONLY: no I/O, network, wall-clock, or config lookups.
+PURE FUNCTIONS ONLY (up to the CLI section at the bottom): no I/O, network, wall-clock, or
+config lookups. The CLI reuses durable.backtest.engine.run_segment_backtest for I/O.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from itertools import combinations
+from pathlib import Path
 
 import numpy as np
+
+from durable.backtest.engine import SegmentDataUnavailable, run_segment_backtest
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 @dataclass(frozen=True)
@@ -202,3 +209,98 @@ def summarize(
         walk_forward_percentile=wf_percentile,
         seed=seed,
     )
+
+
+# --------------------------------------------------------------------------------
+# CLI — `make cpcv`. Runs a real walk-forward backtest to get period returns (reusing
+# durable.backtest.engine's data-assembly path, so CPCV validates the exact same pipeline
+# walk-forward reports), then evaluates every purged/embargoed C(n,k) split. docs/09.
+# --------------------------------------------------------------------------------
+
+
+def _run_cli(segment: str, n_groups: int, k: int) -> int:
+    try:
+        result, start, end = run_segment_backtest(segment)
+    except SegmentDataUnavailable as exc:
+        print(str(exc))
+        return 1
+
+    period_returns = np.array([p.return_pct for p in result.periods])
+    if len(period_returns) < n_groups:
+        print(
+            f"Only {len(period_returns)} periods in segment {segment!r} ({start}..{end}), "
+            f"fewer than n_groups={n_groups}. CPCV needs enough periods for {n_groups} "
+            "contiguous groups — widen the segment or lower --n-groups."
+        )
+        return 1
+
+    from math import comb
+
+    n_paths = comb(n_groups, k)
+    print(
+        f"Running CPCV on segment {segment!r}: {len(period_returns)} periods, "
+        f"C({n_groups},{k})={n_paths} paths..."
+    )
+    paths = run_cpcv(period_returns, n_groups=n_groups, k=k)
+
+    walk_forward_sharpe = _compute_sharpe(period_returns)
+    summary = summarize(paths, walk_forward_sharpe=walk_forward_sharpe)
+
+    print(
+        f"PBO = {summary.pbo:.2%} (kill criterion #6: >50% means more likely overfit than "
+        "genuine)."
+    )
+    if summary.pbo > 0.5:
+        print("⚠️  PBO exceeds 50% — this strategy is more likely overfit than genuine.")
+    if summary.walk_forward_percentile is not None and summary.walk_forward_percentile >= 90:
+        print(
+            f"⚠️  The walk-forward Sharpe sits at the {summary.walk_forward_percentile:.0f}th "
+            "percentile of the CPCV distribution — top-decile results like this are usually luck."
+        )
+    print(
+        f"Mean Sharpe: {summary.mean_sharpe:.3f}   Median: {summary.median_sharpe:.3f}   "
+        f"5th pct: {summary.percentile_5:.3f}   Fraction > 0: "
+        f"{summary.fraction_beating_benchmark:.2%}"
+    )
+
+    out_dir = PROJECT_ROOT / "reports"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    from datetime import date
+
+    out_path = out_dir / f"cpcv_{segment}_{date.today().isoformat()}.json"
+    out_path.write_text(
+        json.dumps(
+            {
+                "segment": segment,
+                "n_groups": n_groups,
+                "k": k,
+                "n_paths": summary.n_paths,
+                "pbo": summary.pbo,
+                "mean_sharpe": summary.mean_sharpe,
+                "median_sharpe": summary.median_sharpe,
+                "percentile_5": summary.percentile_5,
+                "fraction_beating_benchmark": summary.fraction_beating_benchmark,
+                "walk_forward_sharpe": walk_forward_sharpe,
+                "walk_forward_percentile": summary.walk_forward_percentile,
+            },
+            indent=2,
+        )
+    )
+    print(f"Wrote {out_path.relative_to(PROJECT_ROOT)}")
+    return 0
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Combinatorial Purged Cross-Validation")
+    parser.add_argument("--n-groups", type=int, default=10)
+    parser.add_argument("--k", type=int, default=3)
+    parser.add_argument(
+        "--segment",
+        default="validation",
+        help="design | validation | holdout | YYYY-YYYY (default: validation — docs/09)",
+    )
+    args = parser.parse_args()
+    sys.exit(_run_cli(args.segment, args.n_groups, args.k))

@@ -10,11 +10,15 @@ import pytest
 from durable.backtest.engine import (
     BacktestResult,
     CashNegativeError,
+    ImpliedShortSaleError,
     LookaheadError,
     Position,
+    ReconciliationError,
     _apply_delisting,
     _assert_no_lookahead,
     _calculate_nav,
+    _quarterly_rebalance_dates,
+    assert_period_invariants,
     run_backtest,
 )
 
@@ -224,7 +228,7 @@ class TestRunBacktest:
             initial_cash=100_000.0,
         )
         # NAV series should be consistent
-        for dt, nav in result.nav_series:
+        for _dt, nav in result.nav_series:
             assert nav > 0
 
     def test_excluded_stocks_not_bought(self):
@@ -251,3 +255,120 @@ class TestRunBacktest:
             for trade in period.trades:
                 if trade["action"] == "buy":
                     assert trade["ticker"] != "MSFT"
+
+
+class TestAssertPeriodInvariants:
+    """TICKET-049: PROTOCOL §4.1 accounting invariants, checked every period."""
+
+    def _prices(self):
+        return _make_prices(
+            [
+                {"ticker": "AAPL", "dt": "2024-06-30", "close": 200.0},
+            ]
+        )
+
+    def test_valid_period_passes(self):
+        positions = [
+            Position(ticker="AAPL", shares=10, cost_basis=1500.0, entry_date=date(2024, 1, 1))
+        ]
+        # NAV = 10 * 200 + cash(1000) = 3000
+        assert_period_invariants(
+            cash=1000.0,
+            positions=positions,
+            nav_reported=3000.0,
+            prices=self._prices(),
+            dt=date(2024, 6, 30),
+            sell_trades=[],
+            held_before={},
+        )
+
+    def test_negative_cash_raises(self):
+        with pytest.raises(CashNegativeError):
+            assert_period_invariants(
+                cash=-0.01,
+                positions=[],
+                nav_reported=-0.01,
+                prices=self._prices(),
+                dt=date(2024, 6, 30),
+                sell_trades=[],
+                held_before={},
+            )
+
+    def test_nav_mismatch_raises_reconciliation_error(self):
+        positions = [
+            Position(ticker="AAPL", shares=10, cost_basis=1500.0, entry_date=date(2024, 1, 1))
+        ]
+        # Actual positions+cash = 2000 + 1000 = 3000, but we claim NAV is 5000.
+        with pytest.raises(ReconciliationError):
+            assert_period_invariants(
+                cash=1000.0,
+                positions=positions,
+                nav_reported=5000.0,
+                prices=self._prices(),
+                dt=date(2024, 6, 30),
+                sell_trades=[],
+                held_before={},
+            )
+
+    def test_selling_more_than_held_raises_implied_short_sale_error(self):
+        with pytest.raises(ImpliedShortSaleError, match="AAPL"):
+            assert_period_invariants(
+                cash=1000.0,
+                positions=[],
+                nav_reported=1000.0,
+                prices=self._prices(),
+                dt=date(2024, 6, 30),
+                sell_trades=[{"ticker": "AAPL", "shares": 10.0, "action": "sell"}],
+                held_before={"AAPL": 5.0},
+            )
+
+    def test_selling_exactly_what_was_held_passes(self):
+        assert_period_invariants(
+            cash=1000.0,
+            positions=[],
+            nav_reported=1000.0,
+            prices=self._prices(),
+            dt=date(2024, 6, 30),
+            sell_trades=[{"ticker": "AAPL", "shares": 5.0, "action": "sell"}],
+            held_before={"AAPL": 5.0},
+        )
+
+
+class TestQuarterlyRebalanceDates:
+    def test_generates_one_date_per_configured_month_per_year(self):
+        dates = _quarterly_rebalance_dates(
+            date(2024, 1, 1), date(2025, 12, 31), [2, 5, 8, 11], rebalance_week=3
+        )
+        assert len(dates) == 8  # 4 months x 2 years
+        assert dates[0] == date(2024, 2, 15)  # week 3 -> day (3-1)*7+1 = 15
+        assert dates[1] == date(2024, 5, 15)
+
+    def test_respects_range_bounds(self):
+        dates = _quarterly_rebalance_dates(
+            date(2024, 3, 1), date(2024, 10, 1), [2, 5, 8, 11], rebalance_week=3
+        )
+        assert dates == [date(2024, 5, 15), date(2024, 8, 15)]
+
+
+class TestEmptyScores:
+    def test_empty_scores_frame_does_not_crash_run_backtest(self):
+        """A real, legitimate case (e.g. a segment predating ingested data), not an error:
+        pandas gives every column `object` dtype on an empty `pd.DataFrame(columns=[...])`,
+        and boolean-masking with an empty object-dtype mask silently drops every column
+        rather than raising -- see engine.py's `if scores.empty:` guard."""
+        empty_scores = pd.DataFrame(
+            columns=["ticker", "composite_score", "rank", "is_excluded", "sector"]
+        )
+
+        def score_fn(as_of: date) -> pd.DataFrame:
+            return empty_scores
+
+        def price_fn(as_of: date) -> pd.DataFrame:
+            return pd.DataFrame(columns=["ticker", "dt", "close", "available_at"])
+
+        dates = [date(2011, 2, 15), date(2011, 5, 15)]
+        result = run_backtest(
+            rebalance_dates=dates, price_fn=price_fn, score_fn=score_fn, initial_cash=100_000.0
+        )
+        assert isinstance(result, BacktestResult)
+        assert result.total_return == pytest.approx(0.0)
