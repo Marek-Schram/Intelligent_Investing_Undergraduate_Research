@@ -21,6 +21,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from durable.portfolio import construct
+
 
 class SellRule(Enum):
     """Enumerated sell rules. SPEC §8."""
@@ -144,6 +146,8 @@ def generate_proposal(
     buffer_rank: int = 80,
     max_position: float = 0.06,
     max_sector: float = 0.25,
+    no_trade_band: float = construct.NO_TRADE_BAND,
+    turnover_ceiling: float = construct.TURNOVER_CEILING,
 ) -> RebalanceProposal:
     """Generate a rebalance proposal. SPEC §6-9.
 
@@ -156,7 +160,15 @@ def generate_proposal(
     recent_sales : DataFrame with [ticker, sale_date, realized_gain] for wash-sale check
     as_of : the rebalance date
 
-    Returns a RebalanceProposal with blank "mistake" line.
+    Sell-rule checks above decide WHICH names trade; weight targeting below decides HOW
+    MUCH, via durable.portfolio.construct's equal-weight/cap/no-trade-band/turnover-ceiling
+    functions (SPEC §7.1, §7.2, TICKET-048) rather than re-deriving that logic here.
+    Continuing holds rebalance toward target weight only when drift exceeds `no_trade_band`;
+    entries, exits, and trims (already decided above) always execute at full target.
+
+    Returns a RebalanceProposal with blank "mistake" line, unless projected turnover
+    exceeded `turnover_ceiling`, in which case that line carries a pre-trade warning
+    (SPEC §7.2: a kill criterion with no control mechanism is a post-mortem, not a control).
     """
     trades: list[ProposedTrade] = []
     holds: list[str] = []
@@ -257,11 +269,74 @@ def generate_proposal(
                 )
             )
 
+    # --- No-trade-band weight targeting. SPEC §7.1, §7.2, TICKET-048. ---
+    exit_tickers = [t.ticker for t in trades if t.action == "sell"]
+    trim_tickers = [t.ticker for t in trades if t.action == "trim"]
+    buy_tickers = [t.ticker for t in trades if t.action == "buy"]
+    selected = holds + buy_tickers
+
+    sector_by_ticker = (
+        scores.set_index("ticker")["sector"]
+        if not scores.empty and "sector" in scores.columns
+        else pd.Series(dtype=object)
+    )
+    target_w = construct.target_weights(selected, sector_by_ticker, max_position, max_sector)
+
+    current_w = (
+        current_holdings.set_index("ticker")["weight"]
+        if not current_holdings.empty
+        else pd.Series(dtype=float)
+    )
+
+    name_changes = buy_tickers + exit_tickers
+    post_trade_w = construct.apply_no_trade_band(
+        target_w, current_w, name_changes, trim_tickers, no_trade_band
+    )
+    proj_turnover = construct.projected_turnover_from_weights(current_w, post_trade_w)
+
+    turnover_capped = False
+    if proj_turnover > turnover_ceiling:
+        turnover_capped = True
+        post_trade_w = construct.apply_no_trade_band(
+            target_w, current_w, name_changes, trim_tickers, no_trade_band=999.0
+        )
+        proj_turnover = construct.projected_turnover_from_weights(current_w, post_trade_w)
+
+    for t in trades:
+        if t.action == "buy":
+            t.target_weight = float(post_trade_w.get(t.ticker, t.target_weight))
+
+    for ticker in holds:
+        target = float(post_trade_w.get(ticker, 0.0))
+        current = float(current_w.get(ticker, 0.0))
+        if abs(target - current) > 1e-9:
+            trades.append(
+                ProposedTrade(
+                    ticker=ticker,
+                    action="buy" if target > current else "trim",
+                    shares=0.0,  # Caller fills in shares from the weight delta.
+                    target_weight=target,
+                    current_weight=current,
+                    sell_rule=None,
+                    lot_ids=[],  # Trims: caller (build_proposal) selects lots by HIFO.
+                    notes="Rebalance to target weight (no-trade-band, SPEC §7.1).",
+                )
+            )
+
+    mistakes = ""
+    if turnover_capped:
+        mistakes = (
+            f"PRE-TRADE WARNING: projected annualized turnover {proj_turnover:.1%} exceeded "
+            f"the {turnover_ceiling:.0%} ceiling before pricing — rebalance reduced to name "
+            "changes and constraint breaches only (SPEC §7.2)."
+        )
+
     return RebalanceProposal(
         as_of=as_of,
         trades=trades,
         holds=holds,
-        mistakes="",  # Blank — human fills post-review
+        mistakes=mistakes,  # Blank unless a pre-trade turnover warning fired
+        projected_turnover_pct=proj_turnover,
         wash_sale_blocks=wash_sale_blocks,
     )
 
@@ -322,7 +397,7 @@ def build_proposal(conn, as_of: date, config: dict) -> RebalanceProposal:
     from decimal import Decimal
 
     from durable.data import store
-    from durable.execution.sequencer import Order, projected_turnover
+    from durable.execution.sequencer import Order, projected_turnover, sequence
     from durable.tax.lots import Lot, LotSelection, select_lots
 
     try:
@@ -371,6 +446,8 @@ def build_proposal(conn, as_of: date, config: dict) -> RebalanceProposal:
         buffer_rank=portfolio_cfg.get("buffer_rank", 80),
         max_position=portfolio_cfg.get("max_position_weight", 0.06),
         max_sector=portfolio_cfg.get("max_sector_weight", 0.25),
+        no_trade_band=portfolio_cfg.get("no_trade_band", construct.NO_TRADE_BAND),
+        turnover_ceiling=portfolio_cfg.get("max_turnover_annual", construct.TURNOVER_CEILING),
     )
 
     cost_buffer = config.get("reserve_cost_rate", 0.0025)
@@ -386,7 +463,10 @@ def build_proposal(conn, as_of: date, config: dict) -> RebalanceProposal:
         if trade.action == "buy":
             trade.limit_price = round(price * (1 + cost_buffer), 2)
             if nav > 0:
-                trade.shares = round((trade.target_weight * nav) / price, 6)
+                # Delta, not absolute target: a hold-rebalance "add" (current_weight > 0)
+                # must buy only the incremental shares, not re-buy the whole target weight.
+                delta_weight = trade.target_weight - trade.current_weight
+                trade.shares = round((delta_weight * nav) / price, 6)
             else:
                 # No existing holdings means no known NAV — this store has no cash-balance
                 # table (documented above), so a first-ever proposal can't size share counts.
@@ -449,16 +529,46 @@ def build_proposal(conn, as_of: date, config: dict) -> RebalanceProposal:
                 )
             )
 
+    # Sequenced sizing (TICKET-047, docs/01 "Execution sequencing"): sells settle first and
+    # buys are sized from cash actually available, scaled pro-rata on shortfall. There is no
+    # cash-balance table in this store (see _load_current_holdings docstring), so cash_on_hand
+    # is conservatively $0 here — the rebalance must be fully funded by its own sell proceeds.
+    if orders and config.get("sequenced_execution", True):
+        plan = sequence(orders, Decimal("0"), cost_rate=Decimal(str(cost_buffer)))
+        scaled_buy_notional = {o.ticker: o.notional for o in plan.buys}
+        desired_buy_tickers = {o.ticker for o in orders if o.side == "buy"}
+        for trade in proposal.trades:
+            if trade.action != "buy" or trade.ticker not in desired_buy_tickers:
+                continue
+            notional = scaled_buy_notional.get(trade.ticker, Decimal("0"))
+            if notional <= 0:
+                trade.shares = 0.0
+                trade.notes = (trade.notes + " " if trade.notes else "") + (
+                    "DROPPED: sequencing scaled this buy to zero — sell proceeds did not "
+                    "cover it (cash_on_hand assumed $0; no cash-balance table in this store)."
+                )
+            else:
+                trade.shares = round(float(notional / Decimal(str(trade.limit_price))), 6)
+        if plan.shortfall:
+            shortfall_note = (
+                f"Sequencing: buys scaled to {float(plan.scale_applied):.1%} of the desired "
+                "amount — sell proceeds did not fully fund the rebalance (TICKET-047)."
+            )
+            proposal.mistakes = (
+                proposal.mistakes + " " if proposal.mistakes else ""
+            ) + shortfall_note
+
     if orders and nav > 0:
         turnover = projected_turnover(orders, Decimal(str(nav)))
         proposal.projected_turnover_pct = float(turnover)
         max_turnover = portfolio_cfg.get("max_turnover_annual", 0.60)
         if float(turnover) > max_turnover:
-            proposal.mistakes = (
+            warning = (
                 f"PRE-TRADE WARNING: projected annualized turnover {float(turnover):.1%} "
                 f"exceeds the {max_turnover:.0%} kill-criterion ceiling (PROTOCOL §4.1 #4, "
                 "docs/14 §3). Review before submitting."
             )
+            proposal.mistakes = (proposal.mistakes + " " if proposal.mistakes else "") + warning
 
     return proposal
 

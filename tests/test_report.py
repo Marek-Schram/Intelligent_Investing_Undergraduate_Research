@@ -261,8 +261,6 @@ def test_no_network_at_generation_time(monkeypatch: pytest.MonkeyPatch) -> None:
     """Monkeypatch socket to raise; report generation must still succeed."""
     import socket
 
-    original_socket = socket.socket
-
     def _blocked_socket(*args, **kwargs):
         raise RuntimeError("Network access blocked during report generation")
 

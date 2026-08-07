@@ -129,7 +129,8 @@ def test_adjusted_series_differs_from_historical_after_split():
     )
 
     # Company announces 2:1 split on 2024-06-05, effective 2024-06-10
-    # Today's adjusted series (downloaded AFTER the split) retroactively divides all pre-split prices by 2
+    # Today's adjusted series (downloaded AFTER the split) retroactively divides all
+    # pre-split prices by 2
     todays_adjusted_series = pd.DataFrame(
         {
             "date": pd.date_range("2024-05-01", periods=10, freq="D"),
@@ -294,10 +295,7 @@ def test_every_public_data_function_calls_firewall():
             func_start = match.end()
             # Find the next function or end of file
             next_func = content.find("\ndef ", func_start)
-            if next_func == -1:
-                func_body = content[func_start:]
-            else:
-                func_body = content[func_start:next_func]
+            func_body = content[func_start:] if next_func == -1 else content[func_start:next_func]
 
             # Check if it calls a firewall function
             has_firewall = (
@@ -321,7 +319,9 @@ def test_every_public_data_function_calls_firewall():
         # In a stricter implementation, this would fail
         import warnings
 
-        warnings.warn(f"Functions that may need firewall calls: {', '.join(violations[:5])}")
+        warnings.warn(
+            f"Functions that may need firewall calls: {', '.join(violations[:5])}", stacklevel=2
+        )
 
     # At minimum, key data loaders should have firewall calls
     # Check that firewall is actually used somewhere

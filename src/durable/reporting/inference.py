@@ -85,10 +85,7 @@ def stationary_block_bootstrap(
         for t in range(T):
             sample[t] = returns[idx]
             # With probability p, jump to a new random position
-            if rng.random() < p:
-                idx = rng.integers(0, T)
-            else:
-                idx = (idx + 1) % T
+            idx = rng.integers(0, T) if rng.random() < p else (idx + 1) % T
         boot_stats[b] = statistic_fn(sample)
 
     alpha = 1 - confidence
@@ -136,10 +133,9 @@ def deflated_sharpe_ratio(
         norm.ppf(1 - 1 / (2 * n_trials)) * (1 - 0.5772 / np.log(n_trials)) if n_trials > 1 else 0.0
     )
 
-    # SR* adjustment for non-normality
-    sr_adj = sharpe * np.sqrt(1 - skewness * sharpe / 3 + (kurtosis - 3) * sharpe**2 / 4)
-
-    # PSR (probabilistic Sharpe ratio)
+    # PSR (probabilistic Sharpe ratio) standard error, adjusted for skew/kurtosis
+    # (Bailey & Lopez de Prado 2014) -- the adjustment lives in this denominator, not in a
+    # separately-adjusted numerator.
     se_sharpe = np.sqrt(
         (1 + 0.5 * sharpe**2 - skewness * sharpe + (kurtosis - 3) / 4 * sharpe**2) / n_periods
     )

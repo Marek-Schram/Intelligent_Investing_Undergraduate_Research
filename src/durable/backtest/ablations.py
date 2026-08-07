@@ -89,10 +89,7 @@ def t_stat_newey_west(
 
     Returns (t_stat, se).
     """
-    if benchmark_returns is not None:
-        excess = returns - benchmark_returns
-    else:
-        excess = returns
+    excess = returns - benchmark_returns if benchmark_returns is not None else returns
 
     if len(excess) < 2:
         return 0.0, 0.0

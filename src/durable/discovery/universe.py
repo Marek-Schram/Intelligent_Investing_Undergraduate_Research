@@ -197,7 +197,7 @@ def screen_candidate(
         ("distance_to_default", check_distance_to_default(distance_to_default)),
     ]
 
-    for check_name, result in checks:
+    for _check_name, result in checks:
         if result is not None:
             exclusions.append(ExclusionReason(ticker=ticker, reason=result))
 

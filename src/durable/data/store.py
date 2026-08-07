@@ -201,17 +201,21 @@ _TABLES: dict[str, str] = {
 }
 
 _INDEXES: list[str] = [
-    "CREATE INDEX IF NOT EXISTS idx_facts_ticker_avail ON facts_fundamentals (ticker, available_at)",
+    "CREATE INDEX IF NOT EXISTS idx_facts_ticker_avail "
+    "ON facts_fundamentals (ticker, available_at)",
     "CREATE INDEX IF NOT EXISTS idx_bars_ticker_avail ON bars_daily (ticker, available_at)",
     "CREATE INDEX IF NOT EXISTS idx_bars_ticker_dt ON bars_daily (ticker, dt)",
     "CREATE INDEX IF NOT EXISTS idx_actions_ticker ON corporate_actions (ticker, ex_date)",
     "CREATE INDEX IF NOT EXISTS idx_macro_series_avail ON macro_series (series_id, available_at)",
     "CREATE INDEX IF NOT EXISTS idx_insider_ticker_avail ON insider_txns (ticker, available_at)",
-    "CREATE INDEX IF NOT EXISTS idx_political_ticker_avail ON political_txns (ticker, available_at)",
-    "CREATE INDEX IF NOT EXISTS idx_inst_ticker_avail ON institutional_holdings (ticker, available_at)",
+    "CREATE INDEX IF NOT EXISTS idx_political_ticker_avail "
+    "ON political_txns (ticker, available_at)",
+    "CREATE INDEX IF NOT EXISTS idx_inst_ticker_avail "
+    "ON institutional_holdings (ticker, available_at)",
     "CREATE INDEX IF NOT EXISTS idx_short_ticker_avail ON short_interest (ticker, available_at)",
     "CREATE INDEX IF NOT EXISTS idx_credit_ticker_avail ON credit_spreads (ticker, available_at)",
-    "CREATE INDEX IF NOT EXISTS idx_extract_ticker_avail ON filing_extractions (ticker, available_at)",
+    "CREATE INDEX IF NOT EXISTS idx_extract_ticker_avail "
+    "ON filing_extractions (ticker, available_at)",
     "CREATE INDEX IF NOT EXISTS idx_ic_factor ON factor_ic (factor, as_of)",
 ]
 
@@ -273,7 +277,9 @@ def write_snapshot(
             "DataFrame must not contain a 'snapshot_id' column; it is set by the store"
         )
 
-    df_with_id = df.assign(snapshot_id=snapshot_id)
+    # Referenced by name inside the SQL string below via DuckDB's replacement scan, not by
+    # normal Python reference -- looks unused to static analysis but isn't.
+    df_with_id = df.assign(snapshot_id=snapshot_id)  # noqa: F841
 
     conn.execute(f"INSERT INTO {table} SELECT * FROM df_with_id")
 
@@ -320,7 +326,11 @@ def as_of(
         query += " AND ticker IN (SELECT UNNEST(?))"
         params.append(tickers)
 
-    result = conn.execute(query, params).to_arrow_table().to_pandas(self_destruct=True)
+    # self_destruct=True frees Arrow buffers as it converts them, but those buffers are
+    # zero-copy views owned by DuckDB, not by pyarrow -- freeing them is a use-after-free
+    # that segfaults intermittently (observed as SIGSEGV inside libarrow; this function is
+    # the hottest read path in the whole codebase, so it was the one that surfaced it).
+    result = conn.execute(query, params).to_arrow_table().to_pandas()
 
     _assert_no_future_fast(result, ts, table)
 

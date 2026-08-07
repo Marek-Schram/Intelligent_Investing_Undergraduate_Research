@@ -395,13 +395,12 @@ def _select_tax_optimal(
             f"after_tax_proceeds/sh={atp_per_share}",
         ]
 
-        if wsr and wsr.at_risk:
-            if gain_per_share < 0:
-                reason_parts.append(
-                    f"WASH_SALE_RISK: loss disallowed (conflict={wsr.conflicting_lot_id})"
-                )
-                # Penalize: loss won't provide tax benefit
-                # after_tax_proceeds already accounts for this via _after_tax_proceeds
+        if wsr and wsr.at_risk and gain_per_share < 0:
+            reason_parts.append(
+                f"WASH_SALE_RISK: loss disallowed (conflict={wsr.conflicting_lot_id})"
+            )
+            # Penalize: loss won't provide tax benefit
+            # after_tax_proceeds already accounts for this via _after_tax_proceeds
 
         scored.append(
             _ScoredLot(

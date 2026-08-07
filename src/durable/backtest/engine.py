@@ -18,7 +18,16 @@ from pathlib import Path
 
 import pandas as pd
 
+from durable.backtest import impact
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+# Cost defaults (docs/13 §2.4, TICKET-044). Config `backtest.min_half_spread_bps` /
+# `backtest.cost_multiplier` / `impact.enabled` override these at the CLI layer; callers of
+# run_backtest() directly get these conservative retail-scale defaults.
+DEFAULT_HALF_SPREAD_BPS = 2.5
+DEFAULT_VOLATILITY = 0.30  # annualized fallback when fewer than 2 price points exist
+ADV_LOOKBACK_DAYS = 20
 
 
 class LookaheadError(AssertionError):
@@ -57,6 +66,7 @@ class PeriodResult:
     positions_end: list[Position]
     trades: list[dict]
     return_pct: float
+    total_costs: float = 0.0
 
 
 @dataclass
@@ -65,6 +75,7 @@ class BacktestResult:
     total_return: float
     cagr: float
     nav_series: list[tuple[date, float]]
+    total_costs: float = 0.0
 
 
 def _assert_no_lookahead(
@@ -96,6 +107,68 @@ def _get_price(prices: pd.DataFrame, ticker: str, dt: date) -> float | None:
     if ticker_prices.empty:
         return None
     return float(ticker_prices.iloc[-1]["close"])
+
+
+def _estimate_adv_and_volatility(
+    prices: pd.DataFrame,
+    ticker: str,
+    dt: date,
+    lookback: int = ADV_LOOKBACK_DAYS,
+) -> tuple[float, float]:
+    """Trailing ADV (shares) and annualized volatility for a ticker, computed only from price
+    rows already available at `dt` -- PIT-safe, since `prices` is whatever the caller's
+    price_fn(as_of) returned (store.as_of() for a real run; the caller owns the PIT filter).
+
+    Falls back to impact.py's own conservative-participation behavior (adv_shares <= 0 =>
+    participation = 1.0, i.e. worst case) when `volume` is absent or unpopulated, and to
+    DEFAULT_VOLATILITY when fewer than 2 price points exist to compute a return series.
+    """
+    if prices.empty:
+        return 0.0, DEFAULT_VOLATILITY
+
+    hist = prices[prices["ticker"] == ticker].copy()
+    if hist.empty:
+        return 0.0, DEFAULT_VOLATILITY
+    hist["dt"] = pd.to_datetime(hist["dt"]).dt.date
+    hist = hist[hist["dt"] <= dt].sort_values("dt").tail(lookback)
+    if hist.empty:
+        return 0.0, DEFAULT_VOLATILITY
+
+    if "volume" in hist.columns and hist["volume"].notna().any():
+        adv = float(hist["volume"].dropna().mean())
+    else:
+        adv = 0.0
+
+    volatility = DEFAULT_VOLATILITY
+    if len(hist) >= 2:
+        daily_returns = hist["close"].pct_change().dropna()
+        if len(daily_returns) >= 1:
+            computed = float(daily_returns.std() * (252**0.5))
+            if computed == computed and computed > 0:  # NaN guard (std of 1 point is NaN)
+                volatility = computed
+
+    return adv, volatility
+
+
+def _cost_bps_for_trade(
+    shares: float,
+    price: float,
+    prices: pd.DataFrame,
+    ticker: str,
+    dt: date,
+    half_spread_bps: float,
+    multiplier: float,
+) -> float:
+    """Half-spread + Almgren-Chriss market impact, in basis points. docs/13 §2.4, TICKET-044."""
+    adv, volatility = _estimate_adv_and_volatility(prices, ticker, dt)
+    return impact.total_cost_bps(
+        shares=shares,
+        price=price,
+        adv_shares=adv,
+        volatility=volatility,
+        half_spread_bps=half_spread_bps,
+        multiplier=multiplier,
+    )
 
 
 def _apply_delisting(
@@ -186,20 +259,31 @@ def run_backtest(
     delistings: pd.DataFrame | None = None,
     target_n: int = 20,
     max_position: float = 0.06,
+    apply_costs: bool = True,
+    half_spread_bps: float = DEFAULT_HALF_SPREAD_BPS,
+    cost_multiplier: float = 1.0,
 ) -> BacktestResult:
     """Run a walk-forward backtest. SPEC §6-9.
 
     Parameters
     ----------
     rebalance_dates : sorted list of rebalance dates
-    price_fn : callable(as_of: date) -> DataFrame with [ticker, dt, close, available_at]
+    price_fn : callable(as_of: date) -> DataFrame with [ticker, dt, close, available_at],
+        optionally including `volume` -- used for the trailing-ADV estimate in the cost
+        model. Its absence is not an error; it falls back to the model's own conservative
+        worst-case participation assumption (see _estimate_adv_and_volatility).
     score_fn : callable(as_of: date) -> DataFrame with [ticker, composite_score, rank, is_excluded]
     initial_cash : starting cash
     delistings : DataFrame with [ticker, delist_date, final_price] or None
     target_n : target number of positions
     max_position : maximum position weight
+    apply_costs : deduct half-spread + Almgren-Chriss market impact on every trade
+        (docs/13 §2.4, TICKET-044). False reproduces the old frictionless behavior.
+    half_spread_bps : half the bid-ask spread, in bps
+    cost_multiplier : 1x/2x/3x sensitivity scenario multiplier on the cost model
 
-    Returns BacktestResult.
+    Returns BacktestResult. Frictionless (apply_costs=False) understates real-world returns;
+    docs/14 flagged this as an open gap before TICKET-044 was wired in here.
     """
     if delistings is None:
         delistings = pd.DataFrame(columns=["ticker", "delist_date", "final_price"])
@@ -208,6 +292,7 @@ def run_backtest(
     positions: list[Position] = []
     periods: list[PeriodResult] = []
     nav_series: list[tuple[date, float]] = [(rebalance_dates[0], initial_cash)]
+    total_costs = 0.0
 
     for i, rebal_date in enumerate(rebalance_dates):
         prices = price_fn(rebal_date)
@@ -240,13 +325,28 @@ def run_backtest(
             if pos.ticker not in target_tickers:
                 price = _get_price(prices, pos.ticker, rebal_date)
                 if price is not None:
-                    cash += pos.shares * price
+                    proceeds = pos.shares * price
+                    cost = 0.0
+                    if apply_costs:
+                        bps = _cost_bps_for_trade(
+                            pos.shares,
+                            price,
+                            prices,
+                            pos.ticker,
+                            rebal_date,
+                            half_spread_bps,
+                            cost_multiplier,
+                        )
+                        cost = proceeds * bps / 10_000
+                    cash += proceeds - cost
+                    total_costs += cost
                     trades.append(
                         {
                             "ticker": pos.ticker,
                             "action": "sell",
                             "shares": pos.shares,
                             "price": price,
+                            "cost": cost,
                         }
                     )
             else:
@@ -266,15 +366,35 @@ def run_backtest(
                 if price is None or price <= 0:
                     continue
                 shares = alloc_per_ticker / price
-                cost = shares * price
-                if cost > cash:
-                    shares = cash / price
-                    cost = shares * price
+
+                cost_rate = 0.0
+                if apply_costs:
+                    bps = _cost_bps_for_trade(
+                        shares, price, prices, ticker, rebal_date, half_spread_bps, cost_multiplier
+                    )
+                    cost_rate = bps / 10_000
+                notional = shares * price
+                total_cost = notional * (1 + cost_rate)
+
+                if total_cost > cash:
+                    # Cost rate is frozen at the pre-scale-down estimate (an approximation the
+                    # cost model already accepts, per its own docstring) so this solves exactly
+                    # for the affordable share count in one step, with no negative-cash risk
+                    # from an iterative re-estimate under-converging.
+                    shares = cash / (price * (1 + cost_rate))
+                    notional = shares * price
+                    total_cost = notional * (1 + cost_rate)
+
+                cost = total_cost - notional
                 if shares > 0:
-                    cash -= cost
+                    cash -= total_cost
+                    total_costs += cost
                     new_positions.append(
                         Position(
-                            ticker=ticker, shares=shares, cost_basis=cost, entry_date=rebal_date
+                            ticker=ticker,
+                            shares=shares,
+                            cost_basis=notional,
+                            entry_date=rebal_date,
                         )
                     )
                     trades.append(
@@ -283,6 +403,7 @@ def run_backtest(
                             "action": "buy",
                             "shares": shares,
                             "price": price,
+                            "cost": cost,
                         }
                     )
 
@@ -303,6 +424,8 @@ def run_backtest(
             held_before=held_before,
         )
 
+        period_costs = sum(t.get("cost", 0.0) for t in trades)
+
         if i > 0:
             periods.append(
                 PeriodResult(
@@ -316,6 +439,7 @@ def run_backtest(
                     positions_end=list(positions),
                     trades=trades,
                     return_pct=period_return,
+                    total_costs=period_costs,
                 )
             )
 
@@ -333,6 +457,7 @@ def run_backtest(
         total_return=total_return,
         cagr=cagr,
         nav_series=nav_series,
+        total_costs=total_costs,
     )
 
 
@@ -486,7 +611,8 @@ def _run_simulate(assert_invariants: bool) -> int:
 
     print(
         f"OK — {len(result.periods)} periods, all PROTOCOL §4.1 invariants held every period.\n"
-        f"Total return: {result.total_return:.2%}   CAGR: {result.cagr:.2%}"
+        f"Total return: {result.total_return:.2%}   CAGR: {result.cagr:.2%}   "
+        f"Costs paid: ${result.total_costs:,.2f}"
     )
 
     out_dir = PROJECT_ROOT / "data" / "processed"
@@ -499,6 +625,7 @@ def _run_simulate(assert_invariants: bool) -> int:
                 "n_periods": len(result.periods),
                 "total_return": result.total_return,
                 "cagr": result.cagr,
+                "total_costs": result.total_costs,
                 "invariants_checked": [
                     "cash_never_negative",
                     "nav_reconciliation_1e-6",
@@ -590,6 +717,8 @@ def run_segment_backtest(segment: str) -> tuple[BacktestResult, date, date]:
         def score_fn(as_of: date) -> pd.DataFrame:
             return score_universe(conn, as_of, config)
 
+        backtest_cfg = config.get("backtest", {})
+        impact_cfg = config.get("impact", {})
         try:
             result = run_backtest(
                 rebalance_dates=rebalance_dates,
@@ -598,6 +727,9 @@ def run_segment_backtest(segment: str) -> tuple[BacktestResult, date, date]:
                 initial_cash=100_000.0,
                 target_n=portfolio_cfg.get("target_positions", 20),
                 max_position=portfolio_cfg.get("max_position_weight", 0.06),
+                apply_costs=impact_cfg.get("enabled", True),
+                half_spread_bps=backtest_cfg.get("min_half_spread_bps", DEFAULT_HALF_SPREAD_BPS),
+                cost_multiplier=backtest_cfg.get("cost_multiplier", 1.0),
             )
         except (
             CashNegativeError,
@@ -622,7 +754,10 @@ def _run_segment(segment: str) -> int:
         return 1
 
     print(f"Backtested segment {segment!r}: {start} .. {end}, {len(result.periods)} periods.")
-    print(f"Total return: {result.total_return:.2%}   CAGR: {result.cagr:.2%}")
+    print(
+        f"Total return: {result.total_return:.2%}   CAGR: {result.cagr:.2%}   "
+        f"Costs paid: ${result.total_costs:,.2f}"
+    )
     out_dir = PROJECT_ROOT / "reports"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"backtest_{segment}_{date.today().isoformat()}.json"
@@ -634,6 +769,7 @@ def _run_segment(segment: str) -> int:
                 "end": end.isoformat(),
                 "total_return": result.total_return,
                 "cagr": result.cagr,
+                "total_costs": result.total_costs,
                 "n_periods": len(result.periods),
                 "period_returns": [p.return_pct for p in result.periods],
             },

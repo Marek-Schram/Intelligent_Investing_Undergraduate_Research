@@ -138,5 +138,5 @@ class TestFormatTable:
         ]
         df = format_ablation_table(results)
         assert "|t|>2" in df.columns
-        assert df.iloc[0]["|t|>2"] == True
-        assert df.iloc[1]["|t|>2"] == False
+        assert df.iloc[0]["|t|>2"]
+        assert not df.iloc[1]["|t|>2"]

@@ -87,9 +87,8 @@ def carino_linking(
     cum_bench = np.prod([1 + r for r in period_benchmark_returns]) - 1
     cum_excess = cum_port - cum_bench
 
-    # Carino linking factors
+    # Carino linking factor (portfolio-return-based, per Carino 1999)
     log_cum_port = np.log(1 + cum_port) if cum_port != 0 else 1.0
-    log_cum_bench = np.log(1 + cum_bench) if cum_bench != 0 else 1.0
 
     # Compute Carino weights for each period
     sectors = period_attributions[0].allocation.index
@@ -102,16 +101,11 @@ def carino_linking(
 
     for t in range(n):
         r_p_t = period_portfolio_returns[t]
-        r_b_t = period_benchmark_returns[t]
 
         # Carino factor
         log_rp = np.log(1 + r_p_t) if r_p_t != 0 else 1.0
-        log_rb = np.log(1 + r_b_t) if r_b_t != 0 else 1.0
 
-        if cum_port != 0 and r_p_t != 0:
-            k_t = log_rp / log_cum_port
-        else:
-            k_t = 1.0 / n
+        k_t = log_rp / log_cum_port if cum_port != 0 and r_p_t != 0 else 1.0 / n
 
         attr = period_attributions[t]
         linked_alloc = linked_alloc.add(

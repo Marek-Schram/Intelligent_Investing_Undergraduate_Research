@@ -31,7 +31,9 @@ def sample_disclosure() -> DisclosureBlock:
         trials_logged=7,
         pbo=0.38,
         contamination_verdict="PASS",
-        limitations="Single universe, no international, survivorship mitigated but not eliminated.",
+        limitations=(
+            "Single universe, no international, survivorship mitigated but not eliminated."
+        ),
     )
 
 

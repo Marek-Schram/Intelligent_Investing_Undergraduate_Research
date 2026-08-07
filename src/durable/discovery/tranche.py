@@ -8,7 +8,8 @@ CANCEL_SCORE_THRESHOLD=60 · MAX_PCT_OF_ADV=0.01
 
 next_tranche_gate(state, facts, as_of) -> (eligible, explanation)
     T2 requires TWO ADDITIONAL QUARTERS FILED with durability held >= 30. NOT "price fell 20%".
-    Adding because it fell is averaging down into a deteriorating thesis; no config flag enables it.
+    Adding because it fell is averaging down into a deteriorating thesis; no config flag
+    enables it.
 size_tranche(state, total_portfolio_value, adv_60d) -> the MINIMUM of all four constraints.
     Below the broker's fractional minimum => 0.0 with a logged reason. Never round up.
 exit_rules(state, facts, flags, as_of) -> (should_exit, rule). E1 GRADUATION is the SUCCESS

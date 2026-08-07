@@ -56,42 +56,70 @@ def piotroski_f_score(facts: pd.DataFrame) -> int:
     # 5. Long-term debt / assets decreasing
     ltd = _get("long_term_debt")
     ltd_prev = _get("long_term_debt", 1)
-    if ltd is not None and ltd_prev is not None and total_assets and total_assets_prev:
-        if total_assets > 0 and total_assets_prev > 0:
-            if (ltd / total_assets) < (ltd_prev / total_assets_prev):
-                score += 1
+    if (
+        ltd is not None
+        and ltd_prev is not None
+        and total_assets
+        and total_assets_prev
+        and total_assets > 0
+        and total_assets_prev > 0
+        and (ltd / total_assets) < (ltd_prev / total_assets_prev)
+    ):
+        score += 1
 
     # 6. Current ratio improving
     ca = _get("current_assets")
     cl = _get("current_liabilities")
     ca_prev = _get("current_assets", 1)
     cl_prev = _get("current_liabilities", 1)
-    if ca and cl and ca_prev and cl_prev and cl > 0 and cl_prev > 0:
-        if (ca / cl) > (ca_prev / cl_prev):
-            score += 1
+    if (
+        ca
+        and cl
+        and ca_prev
+        and cl_prev
+        and cl > 0
+        and cl_prev > 0
+        and (ca / cl) > (ca_prev / cl_prev)
+    ):
+        score += 1
 
     # 7. Shares not diluted (>1% tolerance)
     shares = _get("shares_outstanding")
     shares_prev = _get("shares_outstanding", 1)
-    if shares is not None and shares_prev is not None and shares_prev > 0:
-        if shares <= shares_prev * 1.01:
-            score += 1
+    if (
+        shares is not None
+        and shares_prev is not None
+        and shares_prev > 0
+        and shares <= shares_prev * 1.01
+    ):
+        score += 1
 
     # 8. Gross margin improving
     gp = _get("gross_profit")
     rev = _get("revenue")
     gp_prev = _get("gross_profit", 1)
     rev_prev = _get("revenue", 1)
-    if gp and rev and gp_prev and rev_prev and rev > 0 and rev_prev > 0:
-        if (gp / rev) > (gp_prev / rev_prev):
-            score += 1
+    if (
+        gp
+        and rev
+        and gp_prev
+        and rev_prev
+        and rev > 0
+        and rev_prev > 0
+        and (gp / rev) > (gp_prev / rev_prev)
+    ):
+        score += 1
 
     # 9. Asset turnover improving
     if rev and total_assets and total_assets_prev:
         rev_prev_val = _get("revenue", 1)
-        if rev_prev_val and total_assets > 0 and total_assets_prev > 0:
-            if (rev / total_assets) > (rev_prev_val / total_assets_prev):
-                score += 1
+        if (
+            rev_prev_val
+            and total_assets > 0
+            and total_assets_prev > 0
+            and (rev / total_assets) > (rev_prev_val / total_assets_prev)
+        ):
+            score += 1
 
     return score
 
@@ -175,7 +203,9 @@ def cash_and_safety_points(facts: pd.DataFrame) -> float:
 
         ni_values = ni_series["value"].tolist()[: len(fcf_values)]
         ratios = []
-        for fcf, ni in zip(fcf_values, ni_values):
+        # ni_values is truncated to len(fcf_values) above but can still end up shorter if
+        # ni_series itself was shorter -- zip's shortest-wins behavior is intentional here.
+        for fcf, ni in zip(fcf_values, ni_values, strict=False):
             if ni != 0:
                 ratios.append(np.clip(fcf / ni, 0, 2))
 
@@ -331,10 +361,9 @@ def red_flags(
 
     # Goodwill heavy: goodwill/assets > 40%
     gw = _latest_value(facts, "goodwill")
-    if gw is not None and assets and assets > 0:
-        if gw / assets > 0.40:
-            penalty -= 3
-            flags.append("goodwill_heavy")
+    if gw is not None and assets and assets > 0 and gw / assets > 0.40:
+        penalty -= 3
+        flags.append("goodwill_heavy")
 
     # Serial dilution: shares +>5%/yr for 3 yrs
     shares_series = facts[facts["field"] == "shares_outstanding"].sort_values("period_end")
