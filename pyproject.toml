@@ -4,10 +4,17 @@ version = "0.1.0"
 description = "Rules-based long-horizon equity system and research study"
 requires-python = ">=3.12"
 dependencies = [
-    "pandas>=2.2",
+    # Upper-bounded below 3.0: pandas 3.x defaults to Arrow-backed string columns
+    # (future.infer_string=True), which segfaults inside pyarrow's pandas_compat
+    # conversion when Streamlit serializes a DataFrame to Arrow from its background
+    # script-runner thread. See src/durable/gui/app.py render_file_preview.
+    "pandas>=2.2,<3.0",
     "numpy>=1.26",
     "duckdb>=1.1",
-    "pyarrow>=17.0",
+    # Upper-bounded: pyarrow 25.0.0 segfaults inside pandas_compat.convert_column when
+    # Streamlit serializes a DataFrame to Arrow from its background script-runner thread
+    # (see the pandas pin comment above and src/durable/gui/app.py render_file_preview).
+    "pyarrow>=17.0,<19",
     "scipy>=1.14",
     "statsmodels>=0.14",
     "pyyaml>=6.0",

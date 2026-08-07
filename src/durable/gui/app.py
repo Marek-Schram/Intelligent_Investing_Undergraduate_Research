@@ -154,8 +154,17 @@ def render_file_preview(path: Path) -> None:
     suffix = path.suffix.lower()
     try:
         if suffix == ".csv":
-            df = pd.read_csv(path)
-            st.dataframe(df, use_container_width=True)
+            # future.infer_string=True (pandas >= 3.0 default) builds an Arrow-backed empty
+            # Index when the CSV has zero data rows, which segfaults reliably when hit from
+            # Streamlit's background script-runner thread (observed as Error 139, e.g. after
+            # a Discovery screen finds zero candidates and writes a header-only watchlist).
+            # Forcing the classic numpy string backend for this read avoids that code path.
+            with pd.option_context("future.infer_string", False):
+                df = pd.read_csv(path)
+            if df.empty:
+                st.info("This file has a header but no data rows.")
+            else:
+                st.dataframe(df, use_container_width=True)
             st.caption(f"{len(df):,} rows × {len(df.columns)} columns")
         elif suffix == ".json":
             st.json(json.loads(path.read_text()))
