@@ -1,11 +1,11 @@
-# Durable Alpha
+# Intelligent Investing System
 
 A rules-based, long-horizon equity system **and a research study**. It ranks US companies on
 **business durability** and **valuation**, holds 15–25 names for years, hunts for under-followed
 small caps in a tightly-capped side sleeve, optimizes after-tax returns, and — critically —
 measures whether any of it actually works.
 
-Built for **Claude Code**. Everything the agent needs is in `CLAUDE.md`, `.claude/`, `docs/`,
+Built with **Claude Code**. Everything the agent needs is in `CLAUDE.md`, `.claude/`, `docs/`,
 and `specs/`.
 
 **✅ Status: 787 tests passing · 35 expected failures · ~10.8k lines of code**
